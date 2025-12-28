@@ -103,11 +103,8 @@ class PoliceChief(commands.Cog):
                 inline=False
             )
         
-        # Send or update dashboard message
-        existing_channel = None
+        # Close any existing dashboard before opening a new one
         if profile.dashboard_message_id and profile.dashboard_channel_id:
-            # Only reuse the stored dashboard when it lives in the same channel the user invoked from
-            # to avoid silent edits to messages the user cannot currently see.
             channel = self.bot.get_channel(profile.dashboard_channel_id)
             if channel and channel.id == ctx.channel.id:
                 existing_channel = channel
@@ -131,6 +128,7 @@ class PoliceChief(commands.Cog):
 
         # Send new message
         message = await ctx.send(embed=embed, view=view)
+        view.attach_message(message)
 
         # Save message ID for future updates
         profile.dashboard_message_id = message.id
