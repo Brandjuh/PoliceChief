@@ -11,6 +11,16 @@
       "required_upgrade": null
     },
     {
+      "id": "dispatch_center_expansion",
+      "name": "Dispatch Center Expansion",
+      "description": "Adds an extra dispatch table to handle more missions in parallel",
+      "cost": 2200,
+      "effect_type": "dispatch_capacity",
+      "effect_value": 1,
+      "min_station_level": 2,
+      "required_upgrade": "dispatch_center"
+    },
+    {
       "id": "fuel_efficiency",
       "name": "Fuel Efficiency Program",
       "description": "Driver training and vehicle optimization reduces fuel costs",

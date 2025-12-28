@@ -14,6 +14,10 @@ if TYPE_CHECKING:  # pragma: no cover - only for type hints
 VEHICLE_CAPACITY_BY_LEVEL = {1: 2}
 HOLDING_CELL_CAPACITY_BY_LEVEL = {1: 0}
 
+# Dispatch center configuration
+DISPATCH_BASE_TABLES = 1
+DISPATCHER_STAFF_ID = "dispatcher"
+
 # Special user ID with full feature access (e.g., automation without upgrade)
 SPECIAL_FEATURE_ACCESS_USER_ID = 132620654087241729
 

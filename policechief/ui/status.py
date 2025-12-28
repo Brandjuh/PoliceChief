@@ -110,12 +110,18 @@ class StatusView(BaseView):
         
         # Automation status
         dispatch_center_available = self.profile.has_automation_access()
+        dispatch_tables = self.cog.game_engine.get_dispatch_table_count(self.profile)
+        dispatcher_ready = "Yes" if self.cog.game_engine.has_active_dispatcher(self.profile) else "No"
+        ready, message, slots = self.cog.game_engine.describe_automation_status(self.profile)
         embed.add_field(
             name="Automation",
             value=(
                 f"Status: {'Enabled' if self.profile.automation_enabled else 'Disabled'}\n"
                 f"Active Policies: {len(self.profile.active_policies)}\n"
-                f"Dispatch Center: {'Yes' if dispatch_center_available else 'No'}"
+                f"Dispatch Center: {'Yes' if dispatch_center_available else 'No'}\n"
+                f"Dispatch Tables: {dispatch_tables}\n"
+                f"Dispatcher On Duty: {dispatcher_ready}\n"
+                f"Details: {message if ready else message}"
             ),
             inline=True
         )

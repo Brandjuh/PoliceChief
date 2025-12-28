@@ -149,45 +149,57 @@ class TickEngine:
             profile.station_level
         )
         
+        ready, _, available_slots = self.game_engine.describe_automation_status(profile)
+        if not ready:
+            return results
+
+        # Respect dispatch table capacity for automation
+        if available_slots <= 0:
+            return results
+
+        dispatched = 0
+
         # Try to dispatch missions based on active policies
         for mission in missions:
+            if dispatched >= available_slots:
+                break
+
             # Check if we can dispatch
-            can_dispatch, reason = self.game_engine.can_dispatch_mission(profile, mission)
+            can_dispatch, _ = self.game_engine.can_dispatch_mission(profile, mission)
             if not can_dispatch:
                 continue
-            
+
             # Check if mission matches any active policy
             if not self._matches_policy(mission, profile.active_policies):
                 continue
-            
+
             # Calculate cost and check balance
             cost = self.game_engine.calculate_dispatch_cost(profile, mission)
             balance = await self.game_engine.get_balance(profile.user_id)
             if balance is None:
                 continue
 
-            if balance < cost:
+            if balance < max(cost, self.game_engine.MINIMUM_BALANCE):
                 continue
-            
+
             # Dispatch the mission
             success, amount, message = self.game_engine.dispatch_mission(profile, mission)
-            
+
             if success:
                 results["income"] += amount
                 results["completed"] += 1
             else:
                 results["expenses"] += abs(amount)
                 results["failed"] += 1
-            
-            # Only dispatch one mission per tick to avoid overwhelming
-            break
+
+            dispatched += 1
         
         return results
     
     def _matches_policy(self, mission, active_policies: List[str]) -> bool:
         """Check if a mission matches any active policy."""
         if not active_policies:
-            return False
+            return True
         
         for policy_id in active_policies:
             policy = self.content.policies.get(policy_id)
