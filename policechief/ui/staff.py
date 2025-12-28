@@ -4,13 +4,13 @@ Author: BrandjuhNL
 """
 
 import discord
-from redbot.core import bank
 
+from .base import BaseView
 from .helpers import build_info_embed, build_error_embed, build_success_embed, format_credits, format_time_remaining
 from ..models import PlayerProfile
 
 
-class StaffView(discord.ui.View):
+class StaffView(BaseView):
     """Staff management view."""
     
     def __init__(self, cog, profile: PlayerProfile, user: discord.User):
@@ -29,14 +29,12 @@ class StaffView(discord.ui.View):
     
     async def build_embed(self) -> discord.Embed:
         """Build the staff embed."""
-        try:
-            balance = await bank.get_balance(self.user.id)
-        except:
-            balance = 0
+        balance = await self.cog.game_engine.get_balance(self.user.id)
+        display_balance = balance if balance is not None else 0
         
         embed = build_info_embed(
             "👮 Staff Management",
-            f"Manage your personnel\nBalance: {format_credits(balance)} credits"
+            f"Manage your personnel\nBalance: {format_credits(display_balance)} credits"
         )
         
         # Show hired staff
@@ -120,15 +118,14 @@ class StaffSelect(discord.ui.Select):
             return
         
         # Check balance
-        try:
-            balance = await bank.get_balance(interaction.user.id)
-        except:
+        balance = await self.view.cog.game_engine.get_balance(interaction.user.id)
+        if balance is None:
             await interaction.response.send_message(
                 embed=build_error_embed("Error", "Failed to check balance"),
                 ephemeral=True
             )
             return
-        
+
         if balance < staff.hire_cost:
             await interaction.response.send_message(
                 embed=build_error_embed(

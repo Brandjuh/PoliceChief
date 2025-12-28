@@ -231,8 +231,8 @@ class GameEngine:
             # Allow going into debt, but check minimum for dispatch
             return balance >= amount, balance
         except Exception as e:
-            log.error(f"Error checking balance for user {user_id}: {e}")
-            return False, 0
+            log.error(f"Error fetching balance for user {user_id}: {e}")
+            return None
     
     async def apply_bank_transaction(
         self,

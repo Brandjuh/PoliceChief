@@ -4,14 +4,14 @@ Author: BrandjuhNL
 """
 
 import discord
-from redbot.core import bank
 from typing import Optional
 
+from .base import BaseView
 from .helpers import build_info_embed, format_credits
 from ..models import PlayerProfile
 
 
-class DashboardView(discord.ui.View):
+class DashboardView(BaseView):
     """Main dashboard menu view."""
     
     def __init__(self, cog, profile: PlayerProfile, user: discord.User):
@@ -40,9 +40,8 @@ class DashboardView(discord.ui.View):
     async def build_embed(self) -> discord.Embed:
         """Build the dashboard embed."""
         # Get current balance
-        try:
-            balance = await bank.get_balance(self.user.id)
-        except:
+        balance = await self.cog.game_engine.get_balance(self.user.id)
+        if balance is None:
             balance = 0
         
         embed = build_info_embed(
