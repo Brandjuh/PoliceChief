@@ -268,3 +268,15 @@ class GameEngine:
         except Exception as e:
             log.error(f"Bank transaction failed for user {user_id} ({reason}): {e}")
             return False, None
+
+    async def get_balance(self, user_id: int) -> Optional[int]:
+        """Return the user's current bank balance."""
+        user = await self._resolve_bank_user(user_id)
+        if not user:
+            return None
+
+        try:
+            return await bank.get_balance(user)
+        except Exception as e:
+            log.error(f"Error fetching balance for user {user_id}: {e}")
+            return None
