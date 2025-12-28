@@ -28,8 +28,8 @@ class DashboardView(BaseView):
         self.add_item(DistrictsButton())
         self.add_item(UpgradesButton())
         
-        # Automation button (locked unless upgrade owned)
-        if profile.has_upgrade("dispatch_center"):
+        # Automation button (locked unless upgrade owned or special access)
+        if profile.has_automation_access():
             self.add_item(AutomationButton())
         else:
             self.add_item(AutomationLockedButton())
