@@ -102,10 +102,6 @@ class PlayerProfile:
         """Total staff that require vehicle seats."""
         seated = 0
         for staff_id, quantity in self.staff_roster.items():
-            # Dispatchers are desk-based and never consume vehicle seating
-            if staff_id == DISPATCHER_STAFF_ID:
-                continue
-
             staff = staff_catalog.get(staff_id)
             if staff is None or staff.requires_vehicle:
                 seated += quantity

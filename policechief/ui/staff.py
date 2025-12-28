@@ -123,8 +123,7 @@ class StaffSelect(discord.ui.Select):
 
         staff_capacity = self.view.profile.get_staff_capacity(self.view.cog.content_loader.vehicles)
         seated_staff = self.view.profile.get_seated_staff_count(self.view.cog.content_loader.staff)
-        requires_seat = staff.requires_vehicle and staff.id != DISPATCHER_STAFF_ID
-        if requires_seat and seated_staff >= staff_capacity:
+        if staff.requires_vehicle and seated_staff >= staff_capacity:
             await interaction.response.send_message(
                 embed=build_error_embed(
                     "No Vehicle Seats Available",
