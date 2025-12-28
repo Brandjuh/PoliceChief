@@ -79,7 +79,8 @@ class DashboardView(BaseView):
         )
 
         staff_capacity = self.profile.get_staff_capacity(self.cog.content_loader.vehicles)
-        staff_text = f"{self.profile.total_staff_count}/{staff_capacity}" if staff_capacity else "0/0"
+        seated_staff = self.profile.get_seated_staff_count(self.cog.content_loader.staff)
+        staff_text = f"{seated_staff}/{staff_capacity}" if staff_capacity else "0/0"
         prisoner_capacity = self.profile.get_prisoner_capacity(self.cog.content_loader.vehicles)
         holding_cells = self.profile.get_holding_cell_capacity()
 

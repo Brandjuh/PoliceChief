@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, TYPE_CHECKING
 from datetime import datetime
 
 if TYPE_CHECKING:  # pragma: no cover - only for type hints
+    from .staff import Staff
     from .vehicle import Vehicle
 
 
@@ -96,6 +97,15 @@ class PlayerProfile:
     def total_staff_count(self) -> int:
         """Total number of staff across all roles."""
         return sum(self.staff_roster.values())
+
+    def get_seated_staff_count(self, staff_catalog: Dict[str, "Staff"]) -> int:
+        """Total staff that require vehicle seats."""
+        seated = 0
+        for staff_id, quantity in self.staff_roster.items():
+            staff = staff_catalog.get(staff_id)
+            if staff is None or staff.requires_vehicle:
+                seated += quantity
+        return seated
 
     def get_vehicle_capacity_limit(self) -> Optional[int]:
         """Maximum vehicles allowed at the current station level."""
