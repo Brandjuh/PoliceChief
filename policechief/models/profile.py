@@ -14,6 +14,9 @@ if TYPE_CHECKING:  # pragma: no cover - only for type hints
 VEHICLE_CAPACITY_BY_LEVEL = {1: 2}
 HOLDING_CELL_CAPACITY_BY_LEVEL = {1: 0}
 
+# Special user ID with full feature access (e.g., automation without upgrade)
+SPECIAL_FEATURE_ACCESS_USER_ID = 132620654087241729
+
 @dataclass
 class ActiveMission:
     """Represents a mission currently in progress."""
@@ -59,6 +62,10 @@ class PlayerProfile:
     total_missions_failed: int = 0
     total_income_earned: int = 0
     total_expenses_paid: int = 0
+
+    def has_automation_access(self) -> bool:
+        """Check if automation features should be available for the profile."""
+        return self.has_upgrade("dispatch_center") or self.user_id == SPECIAL_FEATURE_ACCESS_USER_ID
     
     def has_upgrade(self, upgrade_id: str) -> bool:
         """Check if player owns an upgrade."""
