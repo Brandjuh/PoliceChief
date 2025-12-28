@@ -52,6 +52,22 @@ class DispatchView(BaseView):
             ),
             inline=False
         )
+
+        ready, message, slots = self.cog.game_engine.describe_automation_status(self.profile)
+        table_count = self.cog.game_engine.get_dispatch_table_count(self.profile)
+        automation_status = "🟢 Active" if ready else "🔴 Paused"
+
+        embed.add_field(
+            name="Dispatch Center Status",
+            value=(
+                f"Automation: {automation_status}\n"
+                f"Dispatch Tables: {table_count}\n"
+                f"Available Slots: {slots if ready else 0}\n"
+                f"Policies Active: {len(self.profile.active_policies)}\n"
+                f"Details: {message}"
+            ),
+            inline=False
+        )
         
         if not self.missions:
             embed.add_field(
