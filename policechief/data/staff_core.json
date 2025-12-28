@@ -9,8 +9,7 @@
       "salary_per_tick": 18,
       "success_bonus": 1.0,
       "cooldown_minutes": 10,
-      "min_station_level": 1,
-      "requires_vehicle": false
+      "min_station_level": 1
     },
     {
       "id": "patrol_officer",
