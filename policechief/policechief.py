@@ -74,14 +74,13 @@ class PoliceChief(commands.Cog):
             self.tick_engine.stop()
         log.info("PoliceChief cog unloaded")
     
-    @commands.group(name="pc")
+    @commands.command(name="pc")
     async def policechief(self, ctx: commands.Context):
-        """PoliceChief commands."""
-        pass
-    
-    @policechief.command(name="menu")
-    async def menu(self, ctx: commands.Context):
         """Open your police station dashboard."""
+        await self._open_dashboard(ctx)
+
+    async def _open_dashboard(self, ctx: commands.Context):
+        """Shared dashboard opening logic."""
         # Get or create profile
         profile = await self.repository.get_or_create_profile(ctx.author.id)
         
@@ -104,28 +103,33 @@ class PoliceChief(commands.Cog):
             )
         
         # Close any existing dashboard before opening a new one
-        existing_channel = None
+        existing_message = None
         if profile.dashboard_message_id and profile.dashboard_channel_id:
             channel = self.bot.get_channel(profile.dashboard_channel_id)
             if channel and channel.id == ctx.channel.id:
-                existing_channel = channel
+                try:
+                    message = await channel.fetch_message(profile.dashboard_message_id)
+                    if message and message.components:
+                        existing_message = message
+                    else:
+                        profile.dashboard_message_id = None
+                        profile.dashboard_channel_id = None
+                        await self.repository.save_profile(profile)
+                except discord.NotFound:
+                    profile.dashboard_message_id = None
+                    profile.dashboard_channel_id = None
+                    await self.repository.save_profile(profile)
+                except Exception as e:
+                    log.warning(f"Failed to update existing dashboard message: {e}")
 
-        if existing_channel:
-            try:
-                channel = self.bot.get_channel(profile.dashboard_channel_id)
-                if channel:
-                    try:
-                        message = await channel.fetch_message(profile.dashboard_message_id)
-                        await message.edit(embed=embed, view=view)
-                        await ctx.send(
-                            f"📊 Dashboard refreshed. [Open your dashboard]({message.jump_url})",
-                            suppress_embeds=True
-                        )
-                        return
-                    except discord.NotFound:
-                        pass
-            except Exception as e:
-                log.warning(f"Failed to update existing dashboard message: {e}")
+        if existing_message:
+            await existing_message.edit(embed=embed, view=view)
+            view.attach_message(existing_message)
+            await ctx.send(
+                f"📊 Dashboard refreshed. [Open your dashboard]({existing_message.jump_url})",
+                suppress_embeds=True
+            )
+            return
 
         # Send new message
         message = await ctx.send(embed=embed, view=view)
@@ -135,11 +139,6 @@ class PoliceChief(commands.Cog):
         profile.dashboard_message_id = message.id
         profile.dashboard_channel_id = ctx.channel.id
         await self.repository.save_profile(profile)
-    
-    @policechief.command(name="start")
-    async def start(self, ctx: commands.Context):
-        """Start your police station (alias for menu)."""
-        await ctx.invoke(self.menu)
     
     @commands.group(name="pcadmin")
     @commands.is_owner()
