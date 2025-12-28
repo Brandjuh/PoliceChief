@@ -6,7 +6,7 @@ Author: BrandjuhNL
 import discord
 
 from .base import BaseView
-from .helpers import build_info_embed, format_credits
+from .helpers import build_info_embed, build_error_embed, build_success_embed, format_credits
 from ..models import PlayerProfile
 
 
@@ -18,7 +18,8 @@ class StatusView(BaseView):
         self.cog = cog
         self.profile = profile
         self.user = user
-        
+
+        self.add_item(RenameStationButton())
         self.add_item(BackButton())
     
     async def build_embed(self) -> discord.Embed:
@@ -108,12 +109,13 @@ class StatusView(BaseView):
         )
         
         # Automation status
+        dispatch_center_available = self.profile.has_automation_access()
         embed.add_field(
             name="Automation",
             value=(
                 f"Status: {'Enabled' if self.profile.automation_enabled else 'Disabled'}\n"
                 f"Active Policies: {len(self.profile.active_policies)}\n"
-                f"Dispatch Center: {'Yes' if self.profile.has_upgrade('dispatch_center') else 'No'}"
+                f"Dispatch Center: {'Yes' if dispatch_center_available else 'No'}"
             ),
             inline=True
         )
@@ -123,6 +125,60 @@ class StatusView(BaseView):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         """Validate interaction."""
         return await self.cog.controller.validate_interaction(interaction, self.profile.user_id)
+
+
+class RenameStationButton(discord.ui.Button):
+    """Button for renaming the police station."""
+
+    def __init__(self):
+        super().__init__(
+            style=discord.ButtonStyle.primary,
+            label="Rename Station",
+            custom_id="pc:status:rename:",
+            emoji="✏️"
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(StationNameModal(self.view))
+
+
+class StationNameModal(discord.ui.Modal):
+    """Modal to change the station name."""
+
+    def __init__(self, view: StatusView):
+        super().__init__(title="Rename Your Station")
+        self.view = view
+        self.station_name = discord.ui.TextInput(
+            label="Station Name",
+            default=view.profile.station_name[:50],
+            max_length=50,
+            min_length=3,
+            placeholder="Enter a new station name"
+        )
+        self.add_item(self.station_name)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        new_name = self.station_name.value.strip()
+
+        if not new_name:
+            await interaction.response.send_message(
+                embed=build_error_embed("Invalid Name", "Please enter a valid station name."),
+                ephemeral=True
+            )
+            return
+
+        self.view.profile.station_name = new_name
+        await self.view.cog.repository.save_profile(self.view.profile)
+
+        refreshed_view = StatusView(self.view.cog, self.view.profile, self.view.user)
+        refreshed_embed = await refreshed_view.build_embed()
+        await interaction.response.edit_message(embed=refreshed_embed, view=refreshed_view)
+        refreshed_view.attach_message(interaction.message)
+
+        await interaction.followup.send(
+            embed=build_success_embed("Station Renamed", f"Your station is now called **{new_name}**."),
+            ephemeral=True
+        )
 
 
 class BackButton(discord.ui.Button):

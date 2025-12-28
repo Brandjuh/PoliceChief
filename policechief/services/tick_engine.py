@@ -90,8 +90,8 @@ class TickEngine:
             costs = self.game_engine.calculate_tick_costs(profile)
             total_expenses += costs["total"]
             
-            # If automation is enabled and dispatch center is owned
-            if profile.automation_enabled and profile.has_upgrade("dispatch_center"):
+            # If automation is enabled and dispatch center is available (upgrade or special access)
+            if profile.automation_enabled and profile.has_automation_access():
                 # Auto-dispatch missions based on policies
                 auto_results = await self._auto_dispatch_missions(profile)
                 total_income += auto_results["income"]
