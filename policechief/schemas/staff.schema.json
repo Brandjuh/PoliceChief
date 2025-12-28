@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Staff Schema",
+  "type": "object",
+  "required": ["staff"],
+  "properties": {
+    "staff": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id", "name", "description", "staff_type",
+          "hire_cost", "salary_per_tick", "success_bonus",
+          "cooldown_minutes"
+        ],
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "staff_type": {"type": "string"},
+          "hire_cost": {"type": "integer", "minimum": 0},
+          "salary_per_tick": {"type": "integer", "minimum": 0},
+          "success_bonus": {"type": "number", "minimum": 0},
+          "cooldown_minutes": {"type": "integer", "minimum": 0},
+          "min_station_level": {"type": "integer", "minimum": 1}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
