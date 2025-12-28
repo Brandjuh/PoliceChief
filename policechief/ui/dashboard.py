@@ -69,15 +69,26 @@ class DashboardView(BaseView):
             inline=True
         )
         
-        # Count vehicles and staff
-        total_vehicles = sum(self.profile.owned_vehicles.values())
-        total_staff = sum(self.profile.staff_roster.values())
-        
+        # Count vehicles and staff with capacity info
+        vehicle_limit = self.profile.get_vehicle_capacity_limit()
+        vehicle_text = (
+            f"{self.profile.total_vehicle_count}/{vehicle_limit}"
+            if vehicle_limit is not None
+            else str(self.profile.total_vehicle_count)
+        )
+
+        staff_capacity = self.profile.get_staff_capacity(self.cog.content_loader.vehicles)
+        staff_text = f"{self.profile.total_staff_count}/{staff_capacity}" if staff_capacity else "0/0"
+        prisoner_capacity = self.profile.get_prisoner_capacity(self.cog.content_loader.vehicles)
+        holding_cells = self.profile.get_holding_cell_capacity()
+
         embed.add_field(
             name="Fleet & Staff",
             value=(
-                f"Vehicles: {total_vehicles}\n"
-                f"Staff: {total_staff}\n"
+                f"Vehicles: {vehicle_text}\n"
+                f"Staff Seats Filled: {staff_text}\n"
+                f"Prisoner Transport: {prisoner_capacity} slots\n"
+                f"Holding Cells: {holding_cells} (transfer to prison)\n"
                 f"Missions: {self.profile.total_missions_completed} completed"
             ),
             inline=True

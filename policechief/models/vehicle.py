@@ -9,7 +9,7 @@ from dataclasses import dataclass
 @dataclass
 class Vehicle:
     """Represents a vehicle type that can be purchased."""
-    
+
     id: str
     name: str
     description: str
@@ -18,6 +18,8 @@ class Vehicle:
     maintenance_cost: int  # Per tick
     fuel_efficiency: float  # Multiplier for fuel costs (1.0 = normal, 0.8 = 20% less fuel)
     cooldown_minutes: int  # How long vehicle is unavailable after dispatch
+    seating_capacity: int  # Number of personnel seats
+    prisoner_capacity: int  # Number of prisoners that can be transported
     min_station_level: int = 1
     
     def get_display_name(self) -> str:

@@ -36,7 +36,14 @@ class FleetView(BaseView):
             "🚓 Fleet Management",
             f"Manage your vehicle fleet\nBalance: {format_credits(display_balance)} credits"
         )
-        
+
+        capacity_limit = self.profile.get_vehicle_capacity_limit()
+        capacity_text = (
+            f"{self.profile.total_vehicle_count}/{capacity_limit} vehicles"
+            if capacity_limit is not None
+            else f"{self.profile.total_vehicle_count} vehicles"
+        )
+
         # Show owned vehicles
         if self.profile.owned_vehicles:
             vehicle_list = []
@@ -48,16 +55,16 @@ class FleetView(BaseView):
                     if vehicle_id in self.profile.vehicle_cooldowns:
                         cooldown_text = f" ({format_time_remaining(self.profile.vehicle_cooldowns[vehicle_id])})"
                     vehicle_list.append(f"{status} {vehicle.name} x{quantity}{cooldown_text}")
-            
+
             if vehicle_list:
                 embed.add_field(
-                    name="Your Fleet",
+                    name=f"Your Fleet ({capacity_text})",
                     value="\n".join(vehicle_list[:10]),  # Show max 10
                     inline=False
                 )
         else:
             embed.add_field(
-                name="Your Fleet",
+                name=f"Your Fleet ({capacity_text})",
                 value="No vehicles owned yet",
                 inline=False
             )
@@ -109,14 +116,26 @@ class VehicleSelect(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction):
         vehicle_id = self.values[0]
         vehicle = self.view.cog.content_loader.vehicles.get(vehicle_id)
-        
+
         if not vehicle:
             await interaction.response.send_message(
                 embed=build_error_embed("Error", "Vehicle not found"),
                 ephemeral=True
             )
             return
-        
+
+        if not self.view.profile.has_vehicle_capacity():
+            limit = self.view.profile.get_vehicle_capacity_limit()
+            limit_text = f"{limit} vehicles" if limit is not None else "current capacity"
+            await interaction.response.send_message(
+                embed=build_error_embed(
+                    "Capacity Reached",
+                    f"Your station can only house {limit_text}. Upgrade your station to expand your fleet."
+                ),
+                ephemeral=True
+            )
+            return
+
         # Check balance
         balance = await self.view.cog.game_engine.get_balance(interaction.user.id)
         if balance is None:

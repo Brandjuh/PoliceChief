@@ -71,6 +71,11 @@ The dashboard provides access to all game features:
 - Cooldown duration depends on the mission and unit type
 - Units recover automatically after cooldown expires
 
+**Station Capacity:**
+- Level 1 stations can only house 2 vehicles
+- Each patrol car seats 2 officers and can transport 1 prisoner
+- The starter station has no holding cells, so prisoners must be transferred to a jail facility
+
 **Passive Income (Automation):**
 - Purchase the "Dispatch Center" upgrade to unlock automation
 - Enable automation in the Automation menu
