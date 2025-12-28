@@ -7,7 +7,7 @@
       "cost": 3000,
       "effect_type": "automation",
       "effect_value": 1.0,
-      "min_station_level": 2,
+      "min_station_level": 1,
       "required_upgrade": null
     },
     {
