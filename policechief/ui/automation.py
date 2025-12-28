@@ -44,12 +44,27 @@ class AutomationView(BaseView):
                 "every 5 minutes based on your active policies.\n\n"
                 "**Requirements:**\n"
                 "• Dispatch Center upgrade\n"
+                "• At least one dispatcher hired\n"
                 "• Available vehicles and staff\n"
                 "• Sufficient funds\n\n"
                 "**Benefits:**\n"
                 "• Passive income while offline\n"
                 "• Automatic mission execution\n"
                 "• Hands-free operation"
+            ),
+            inline=False
+        )
+
+        ready, message, slots = self.cog.game_engine.describe_automation_status(self.profile)
+        table_count = self.cog.game_engine.get_dispatch_table_count(self.profile)
+
+        embed.add_field(
+            name="Dispatch Center",
+            value=(
+                f"Automation: {'🟢 Ready' if ready else '🔴 Paused'}\n"
+                f"Tables Available: {table_count}\n"
+                f"Slots Free: {slots if ready else 0}\n"
+                f"Details: {message}"
             ),
             inline=False
         )
