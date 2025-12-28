@@ -3,6 +3,8 @@ Dispatch view - mission selection and execution
 Author: BrandjuhNL
 """
 
+from datetime import datetime
+
 import discord
 
 from .base import BaseView
@@ -24,10 +26,11 @@ class DispatchView(BaseView):
             profile.current_district,
             profile.station_level
         )
-        
+
         if self.missions:
             self.add_item(MissionSelect(self.missions))
-        
+
+        self.add_item(ActiveMissionsButton())
         self.add_item(BackButton())
     
     async def build_embed(self) -> discord.Embed:
@@ -200,6 +203,24 @@ class MissionDetailView(BaseView):
         return await self.cog.controller.validate_interaction(interaction, self.profile.user_id)
 
 
+class ActiveMissionsButton(discord.ui.Button):
+    """Button to view currently active missions."""
+
+    def __init__(self):
+        super().__init__(
+            style=discord.ButtonStyle.primary,
+            label="Active Missions",
+            custom_id="pc:dispatch:active_missions:",
+            emoji="🕒"
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        view = ActiveMissionsView(self.view.cog, self.view.profile, self.view.user)
+        embed = await view.build_embed()
+        await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)
+
+
 class DispatchButton(discord.ui.Button):
     """Dispatch mission button."""
     
@@ -318,6 +339,64 @@ class BackToDispatchButton(discord.ui.Button):
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
         view.attach_message(interaction.message)
+
+
+class ActiveMissionsView(BaseView):
+    """View showing missions that are currently in progress."""
+
+    def __init__(self, cog, profile: PlayerProfile, user: discord.User):
+        super().__init__(timeout=300)
+        self.cog = cog
+        self.profile = profile
+        self.user = user
+
+        self.add_item(BackToDispatchButton())
+
+    async def build_embed(self) -> discord.Embed:
+        """Build the active missions embed."""
+        now = datetime.utcnow()
+        before = len(self.profile.active_missions)
+        self.profile.prune_expired_missions(reference_time=now)
+
+        if len(self.profile.active_missions) != before:
+            await self.cog.repository.save_profile(self.profile)
+
+        embed = build_info_embed(
+            "🕒 Active Missions",
+            "Missions currently in progress."
+        )
+
+        active = sorted(self.profile.active_missions, key=lambda mission: mission.ends_at)
+
+        if not active:
+            embed.add_field(
+                name="No Active Missions",
+                value="All units are currently available.",
+                inline=False
+            )
+            return embed
+
+        mission_lines = []
+        for mission in active:
+            eta = mission.ends_at.strftime("%H:%M UTC")
+            remaining = mission.remaining_minutes(now)
+            mission_lines.append(
+                f"• **{mission.name}** – {remaining}m remaining (eta {eta})"
+            )
+
+        embed.add_field(
+            name=f"In Progress ({len(active)})",
+            value="\n".join(mission_lines),
+            inline=False
+        )
+
+        embed.set_footer(text="Missions drop off the list once completed")
+
+        return embed
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Validate interaction."""
+        return await self.cog.controller.validate_interaction(interaction, self.profile.user_id)
 
 
 class BackButton(discord.ui.Button):
