@@ -131,3 +131,4 @@ class BackButton(discord.ui.Button):
         view = DashboardView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)

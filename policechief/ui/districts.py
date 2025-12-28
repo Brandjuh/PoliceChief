@@ -143,8 +143,9 @@ class DistrictSelect(discord.ui.Select):
             # Refresh view
             new_view = DistrictsView(self.view.cog, self.view.profile, self.view.user)
             new_embed = await new_view.build_embed()
-            
+
             await interaction.response.edit_message(embed=new_embed, view=new_view)
+            new_view.attach_message(interaction.message)
             await interaction.followup.send(embed=success_embed, ephemeral=True)
             return
         
@@ -200,8 +201,9 @@ class DistrictSelect(discord.ui.Select):
         # Refresh view
         new_view = DistrictsView(self.view.cog, self.view.profile, self.view.user)
         new_embed = await new_view.build_embed()
-        
+
         await interaction.response.edit_message(embed=new_embed, view=new_view)
+        new_view.attach_message(interaction.message)
         await interaction.followup.send(embed=success_embed, ephemeral=True)
 
 
@@ -221,3 +223,4 @@ class BackButton(discord.ui.Button):
         view = DashboardView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)

@@ -115,6 +115,7 @@ class MissionSelect(discord.ui.Select):
         detail_view = MissionDetailView(self.view.cog, self.view.profile, self.view.user, mission)
         embed = await detail_view.build_embed()
         await interaction.response.edit_message(embed=embed, view=detail_view)
+        detail_view.attach_message(interaction.message)
 
 
 class MissionDetailView(BaseView):
@@ -282,8 +283,9 @@ class DispatchButton(discord.ui.Button):
         from .dispatch import DispatchView
         dispatch_view = DispatchView(self.view.cog, self.view.profile, self.view.user)
         dispatch_embed = await dispatch_view.build_embed()
-        
+
         await interaction.response.edit_message(embed=dispatch_embed, view=dispatch_view)
+        dispatch_view.attach_message(interaction.message)
         await interaction.followup.send(embed=result_embed, ephemeral=True)
 
 
@@ -315,6 +317,7 @@ class BackToDispatchButton(discord.ui.Button):
         view = DispatchView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)
 
 
 class BackButton(discord.ui.Button):
@@ -333,3 +336,4 @@ class BackButton(discord.ui.Button):
         view = DashboardView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)
