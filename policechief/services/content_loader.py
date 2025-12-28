@@ -6,7 +6,9 @@ Author: BrandjuhNL
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Type
+
+import jsonschema
 
 from ..models import Mission, Vehicle, District, Staff, Upgrade, Policy
 
@@ -30,14 +32,14 @@ class ContentLoader:
     async def load_all(self):
         """Load all content packs."""
         log.info("Loading content packs...")
-        
+
         await self._load_missions()
         await self._load_vehicles()
         await self._load_districts()
         await self._load_staff()
         await self._load_upgrades()
         await self._load_policies()
-        
+
         log.info(
             f"Loaded content: {len(self.missions)} missions, "
             f"{len(self.vehicles)} vehicles, {len(self.districts)} districts, "
@@ -48,96 +50,131 @@ class ContentLoader:
     async def _load_missions(self):
         """Load mission packs."""
         self.missions = {}
-        for pack_file in self.data_dir.glob("missions_*.json"):
-            try:
-                with open(pack_file, 'r') as f:
-                    data = json.load(f)
-                
-                for mission_data in data.get("missions", []):
-                    mission = Mission(**mission_data)
-                    self.missions[mission.id] = mission
-                
-                log.info(f"Loaded {pack_file.name}: {len(data.get('missions', []))} missions")
-            except Exception as e:
-                log.error(f"Error loading {pack_file.name}: {e}")
+        schema = self._load_schema("mission.schema.json")
+        await self._load_pack(
+            pattern="missions_*.json",
+            schema=schema,
+            top_key="missions",
+            model_cls=Mission,
+            target=self.missions,
+        )
     
     async def _load_vehicles(self):
         """Load vehicle packs."""
         self.vehicles = {}
-        for pack_file in self.data_dir.glob("vehicles_*.json"):
-            try:
-                with open(pack_file, 'r') as f:
-                    data = json.load(f)
-                
-                for vehicle_data in data.get("vehicles", []):
-                    vehicle = Vehicle(**vehicle_data)
-                    self.vehicles[vehicle.id] = vehicle
-                
-                log.info(f"Loaded {pack_file.name}: {len(data.get('vehicles', []))} vehicles")
-            except Exception as e:
-                log.error(f"Error loading {pack_file.name}: {e}")
+        schema = self._load_schema("vehicle.schema.json")
+        await self._load_pack(
+            pattern="vehicles_*.json",
+            schema=schema,
+            top_key="vehicles",
+            model_cls=Vehicle,
+            target=self.vehicles,
+        )
     
     async def _load_districts(self):
         """Load district packs."""
         self.districts = {}
-        for pack_file in self.data_dir.glob("districts_*.json"):
-            try:
-                with open(pack_file, 'r') as f:
-                    data = json.load(f)
-                
-                for district_data in data.get("districts", []):
-                    district = District(**district_data)
-                    self.districts[district.id] = district
-                
-                log.info(f"Loaded {pack_file.name}: {len(data.get('districts', []))} districts")
-            except Exception as e:
-                log.error(f"Error loading {pack_file.name}: {e}")
+        schema = self._load_schema("district.schema.json")
+        await self._load_pack(
+            pattern="districts_*.json",
+            schema=schema,
+            top_key="districts",
+            model_cls=District,
+            target=self.districts,
+        )
     
     async def _load_staff(self):
         """Load staff packs."""
         self.staff = {}
-        for pack_file in self.data_dir.glob("staff_*.json"):
-            try:
-                with open(pack_file, 'r') as f:
-                    data = json.load(f)
-                
-                for staff_data in data.get("staff", []):
-                    staff_obj = Staff(**staff_data)
-                    self.staff[staff_obj.id] = staff_obj
-                
-                log.info(f"Loaded {pack_file.name}: {len(data.get('staff', []))} staff types")
-            except Exception as e:
-                log.error(f"Error loading {pack_file.name}: {e}")
+        schema = self._load_schema("staff.schema.json")
+        await self._load_pack(
+            pattern="staff_*.json",
+            schema=schema,
+            top_key="staff",
+            model_cls=Staff,
+            target=self.staff,
+        )
     
     async def _load_upgrades(self):
         """Load upgrade packs."""
         self.upgrades = {}
-        for pack_file in self.data_dir.glob("upgrades_*.json"):
-            try:
-                with open(pack_file, 'r') as f:
-                    data = json.load(f)
-                
-                for upgrade_data in data.get("upgrades", []):
-                    upgrade = Upgrade(**upgrade_data)
-                    self.upgrades[upgrade.id] = upgrade
-                
-                log.info(f"Loaded {pack_file.name}: {len(data.get('upgrades', []))} upgrades")
-            except Exception as e:
-                log.error(f"Error loading {pack_file.name}: {e}")
+        schema = self._load_schema("upgrade.schema.json")
+        await self._load_pack(
+            pattern="upgrades_*.json",
+            schema=schema,
+            top_key="upgrades",
+            model_cls=Upgrade,
+            target=self.upgrades,
+        )
     
     async def _load_policies(self):
         """Load policy packs."""
         self.policies = {}
-        for pack_file in self.data_dir.glob("policies_*.json"):
+        schema = self._load_schema("policy.schema.json")
+        await self._load_pack(
+            pattern="policies_*.json",
+            schema=schema,
+            top_key="policies",
+            model_cls=Policy,
+            target=self.policies,
+        )
+
+    def _load_schema(self, filename: str) -> dict:
+        """Load a JSON schema file."""
+        path = self.schema_dir / filename
+        try:
+            with open(path, "r") as f:
+                return json.load(f)
+        except Exception as exc:
+            log.error(f"Failed to load schema {filename}: {exc}")
+            return {}
+
+    async def _load_pack(
+        self,
+        *,
+        pattern: str,
+        schema: dict,
+        top_key: str,
+        model_cls: Type,
+        target: Dict[str, object],
+    ):
+        """
+        Shared helper for loading and validating a pack file.
+
+        Args:
+            pattern: Glob pattern inside the data directory.
+            schema: JSON schema dictionary for validation.
+            top_key: Top-level key in the JSON data.
+            model_cls: Dataclass to instantiate per entry.
+            target: Dictionary to populate with ID -> model instances.
+        """
+        for pack_file in self.data_dir.glob(pattern):
             try:
-                with open(pack_file, 'r') as f:
+                with open(pack_file, "r") as f:
                     data = json.load(f)
-                
-                for policy_data in data.get("policies", []):
-                    policy = Policy(**policy_data)
-                    self.policies[policy.id] = policy
-                
-                log.info(f"Loaded {pack_file.name}: {len(data.get('policies', []))} policies")
+
+                # Validate content pack against schema when available
+                if schema:
+                    jsonschema.validate(instance=data, schema=schema)
+
+                entries = data.get(top_key, [])
+                loaded_count = 0
+
+                for entry in entries:
+                    try:
+                        obj = model_cls(**entry)
+                        target[obj.id] = obj
+                        loaded_count += 1
+                    except Exception as entry_exc:
+                        log.error(
+                            f"Failed to load {model_cls.__name__} from {pack_file.name}: {entry_exc}"
+                        )
+
+                log.info(f"Loaded {pack_file.name}: {loaded_count} {top_key}")
+            except jsonschema.ValidationError as val_err:
+                log.error(
+                    f"Validation failed for {pack_file.name}: {val_err.message} at {list(val_err.absolute_path)}"
+                )
             except Exception as e:
                 log.error(f"Error loading {pack_file.name}: {e}")
     

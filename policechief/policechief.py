@@ -52,7 +52,7 @@ class PoliceChief(commands.Cog):
         await self.content_loader.load_all()
         
         # Initialize game engine
-        self.game_engine = GameEngine(self.content_loader)
+        self.game_engine = GameEngine(self.bot, self.content_loader)
         
         # Initialize tick engine
         self.tick_engine = TickEngine(
@@ -111,7 +111,10 @@ class PoliceChief(commands.Cog):
                     try:
                         message = await channel.fetch_message(profile.dashboard_message_id)
                         await message.edit(embed=embed, view=view)
-                        await ctx.tick()
+                        await ctx.send(
+                            "📊 Dashboard refreshed. Use the buttons below to navigate.",
+                            delete_after=8
+                        )
                         return
                     except discord.NotFound:
                         pass
