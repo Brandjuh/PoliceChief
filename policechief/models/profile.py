@@ -4,9 +4,15 @@ Author: BrandjuhNL
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 from datetime import datetime
 
+if TYPE_CHECKING:  # pragma: no cover - only for type hints
+    from .vehicle import Vehicle
+
+
+VEHICLE_CAPACITY_BY_LEVEL = {1: 2}
+HOLDING_CELL_CAPACITY_BY_LEVEL = {1: 0}
 
 @dataclass
 class PlayerProfile:
@@ -53,6 +59,47 @@ class PlayerProfile:
     def get_staff_count(self, staff_id: str) -> int:
         """Get count of staff of a type."""
         return self.staff_roster.get(staff_id, 0)
+
+    @property
+    def total_vehicle_count(self) -> int:
+        """Total number of vehicles owned across all types."""
+        return sum(self.owned_vehicles.values())
+
+    @property
+    def total_staff_count(self) -> int:
+        """Total number of staff across all roles."""
+        return sum(self.staff_roster.values())
+
+    def get_vehicle_capacity_limit(self) -> Optional[int]:
+        """Maximum vehicles allowed at the current station level."""
+        return VEHICLE_CAPACITY_BY_LEVEL.get(self.station_level)
+
+    def has_vehicle_capacity(self) -> bool:
+        """Check if another vehicle can be purchased under the current limit."""
+        limit = self.get_vehicle_capacity_limit()
+        return limit is None or self.total_vehicle_count < limit
+
+    def get_staff_capacity(self, vehicles: Dict[str, "Vehicle"]) -> int:
+        """Calculate total staff that can be seated based on owned vehicles."""
+        capacity = 0
+        for vehicle_id, quantity in self.owned_vehicles.items():
+            vehicle = vehicles.get(vehicle_id)
+            if vehicle:
+                capacity += vehicle.seating_capacity * quantity
+        return capacity
+
+    def get_prisoner_capacity(self, vehicles: Dict[str, "Vehicle"]) -> int:
+        """Calculate total prisoner transport capacity based on owned vehicles."""
+        capacity = 0
+        for vehicle_id, quantity in self.owned_vehicles.items():
+            vehicle = vehicles.get(vehicle_id)
+            if vehicle:
+                capacity += vehicle.prisoner_capacity * quantity
+        return capacity
+
+    def get_holding_cell_capacity(self) -> int:
+        """Holding cell capacity for the current station level."""
+        return HOLDING_CELL_CAPACITY_BY_LEVEL.get(self.station_level, 0)
     
     def add_vehicle(self, vehicle_id: str, quantity: int = 1):
         """Add vehicles to the fleet."""

@@ -36,7 +36,10 @@ class StaffView(BaseView):
             "👮 Staff Management",
             f"Manage your personnel\nBalance: {format_credits(display_balance)} credits"
         )
-        
+
+        staff_capacity = self.profile.get_staff_capacity(self.cog.content_loader.vehicles)
+        staff_capacity_text = f"{self.profile.total_staff_count}/{staff_capacity}" if staff_capacity else "0"
+
         # Show hired staff
         if self.profile.staff_roster:
             staff_list = []
@@ -48,16 +51,16 @@ class StaffView(BaseView):
                     if staff_id in self.profile.staff_cooldowns:
                         cooldown_text = f" ({format_time_remaining(self.profile.staff_cooldowns[staff_id])})"
                     staff_list.append(f"{status} {staff.name} x{quantity}{cooldown_text}")
-            
+
             if staff_list:
                 embed.add_field(
-                    name="Your Staff",
+                    name=f"Your Staff ({staff_capacity_text} seated)",
                     value="\n".join(staff_list[:10]),  # Show max 10
                     inline=False
                 )
         else:
             embed.add_field(
-                name="Your Staff",
+                name=f"Your Staff ({staff_capacity_text} seated)",
                 value="No staff hired yet",
                 inline=False
             )
@@ -109,14 +112,25 @@ class StaffSelect(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction):
         staff_id = self.values[0]
         staff = self.view.cog.content_loader.staff.get(staff_id)
-        
+
         if not staff:
             await interaction.response.send_message(
                 embed=build_error_embed("Error", "Staff type not found"),
                 ephemeral=True
             )
             return
-        
+
+        staff_capacity = self.view.profile.get_staff_capacity(self.view.cog.content_loader.vehicles)
+        if self.view.profile.total_staff_count >= staff_capacity:
+            await interaction.response.send_message(
+                embed=build_error_embed(
+                    "No Vehicle Seats Available",
+                    "All available vehicle seats are filled. Purchase more vehicles to hire additional staff."
+                ),
+                ephemeral=True
+            )
+            return
+
         # Check balance
         balance = await self.view.cog.game_engine.get_balance(interaction.user.id)
         if balance is None:
