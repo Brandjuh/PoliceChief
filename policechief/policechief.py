@@ -104,6 +104,7 @@ class PoliceChief(commands.Cog):
             )
         
         # Close any existing dashboard before opening a new one
+        existing_channel = None
         if profile.dashboard_message_id and profile.dashboard_channel_id:
             channel = self.bot.get_channel(profile.dashboard_channel_id)
             if channel and channel.id == ctx.channel.id:
