@@ -1,6 +1,18 @@
 {
   "staff": [
     {
+      "id": "dispatcher",
+      "name": "Dispatcher",
+      "description": "Coordinates units and keeps the dispatch center online",
+      "staff_type": "dispatcher",
+      "hire_cost": 450,
+      "salary_per_tick": 18,
+      "success_bonus": 1.0,
+      "cooldown_minutes": 10,
+      "min_station_level": 1,
+      "requires_vehicle": false
+    },
+    {
       "id": "patrol_officer",
       "name": "Patrol Officer",
       "description": "Standard police officer for routine patrols and responses",

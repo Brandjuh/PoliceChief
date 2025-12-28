@@ -8,11 +8,16 @@ from typing import Dict, List, Optional, TYPE_CHECKING
 from datetime import datetime
 
 if TYPE_CHECKING:  # pragma: no cover - only for type hints
+    from .staff import Staff
     from .vehicle import Vehicle
 
 
 VEHICLE_CAPACITY_BY_LEVEL = {1: 2}
 HOLDING_CELL_CAPACITY_BY_LEVEL = {1: 0}
+
+# Dispatch center configuration
+DISPATCH_BASE_TABLES = 1
+DISPATCHER_STAFF_ID = "dispatcher"
 
 # Special user ID with full feature access (e.g., automation without upgrade)
 SPECIAL_FEATURE_ACCESS_USER_ID = 132620654087241729
@@ -92,6 +97,19 @@ class PlayerProfile:
     def total_staff_count(self) -> int:
         """Total number of staff across all roles."""
         return sum(self.staff_roster.values())
+
+    def get_seated_staff_count(self, staff_catalog: Dict[str, "Staff"]) -> int:
+        """Total staff that require vehicle seats."""
+        seated = 0
+        for staff_id, quantity in self.staff_roster.items():
+            # Dispatchers are desk-based and never consume vehicle seating
+            if staff_id == DISPATCHER_STAFF_ID:
+                continue
+
+            staff = staff_catalog.get(staff_id)
+            if staff is None or staff.requires_vehicle:
+                seated += quantity
+        return seated
 
     def get_vehicle_capacity_limit(self) -> Optional[int]:
         """Maximum vehicles allowed at the current station level."""

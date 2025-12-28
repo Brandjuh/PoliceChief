@@ -7,7 +7,7 @@ import discord
 
 from .base import BaseView
 from .helpers import build_info_embed, build_error_embed, build_success_embed, format_credits, format_time_remaining
-from ..models import PlayerProfile
+from ..models import DISPATCHER_STAFF_ID, PlayerProfile
 
 
 class StaffView(BaseView):
@@ -38,7 +38,8 @@ class StaffView(BaseView):
         )
 
         staff_capacity = self.profile.get_staff_capacity(self.cog.content_loader.vehicles)
-        staff_capacity_text = f"{self.profile.total_staff_count}/{staff_capacity}" if staff_capacity else "0"
+        seated_staff = self.profile.get_seated_staff_count(self.cog.content_loader.staff)
+        staff_capacity_text = f"{seated_staff}/{staff_capacity}" if staff_capacity else "0"
 
         # Show hired staff
         if self.profile.staff_roster:
@@ -121,7 +122,9 @@ class StaffSelect(discord.ui.Select):
             return
 
         staff_capacity = self.view.profile.get_staff_capacity(self.view.cog.content_loader.vehicles)
-        if self.view.profile.total_staff_count >= staff_capacity:
+        seated_staff = self.view.profile.get_seated_staff_count(self.view.cog.content_loader.staff)
+        requires_seat = staff.requires_vehicle and staff.id != DISPATCHER_STAFF_ID
+        if requires_seat and seated_staff >= staff_capacity:
             await interaction.response.send_message(
                 embed=build_error_embed(
                     "No Vehicle Seats Available",

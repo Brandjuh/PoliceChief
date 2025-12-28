@@ -34,5 +34,9 @@ class Upgrade:
             return f"Increases income by {int(self.effect_value * 100)}%"
         elif self.effect_type == "success_boost":
             return f"Increases mission success by {int(self.effect_value * 100)}%"
+        elif self.effect_type == "dispatch_capacity":
+            tables = int(self.effect_value)
+            table_text = "table" if tables == 1 else "tables"
+            return f"Adds {tables} dispatch {table_text}"
         else:
             return "Special effect"
