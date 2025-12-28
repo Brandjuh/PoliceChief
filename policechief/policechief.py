@@ -114,16 +114,18 @@ class PoliceChief(commands.Cog):
 
         if existing_channel:
             try:
-                message = await existing_channel.fetch_message(profile.dashboard_message_id)
-                await message.edit(embed=embed, view=view)
-                await ctx.send(
-                    "📊 Dashboard refreshed. Use the buttons below to navigate.",
-                    delete_after=8
-                )
-                return
-            except discord.NotFound:
-                # Message was deleted - fall through to sending a new one in the current channel
-                pass
+                channel = self.bot.get_channel(profile.dashboard_channel_id)
+                if channel:
+                    try:
+                        message = await channel.fetch_message(profile.dashboard_message_id)
+                        await message.edit(embed=embed, view=view)
+                        await ctx.send(
+                            "📊 Dashboard refreshed. Use the buttons below to navigate.",
+                            delete_after=8
+                        )
+                        return
+                    except discord.NotFound:
+                        pass
             except Exception as e:
                 log.warning(f"Failed to update existing dashboard message: {e}")
 

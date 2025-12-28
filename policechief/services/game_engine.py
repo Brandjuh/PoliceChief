@@ -222,21 +222,14 @@ class GameEngine:
         Check if user has sufficient balance for a transaction.
         Returns (has_sufficient, current_balance)
         """
-        balance = await self.get_balance(user_id)
-        if balance is None:
-            return False, 0
-
-        # Allow going into debt, but check minimum for dispatch
-        return balance >= amount, balance
-
-    async def get_balance(self, user_id: int) -> Optional[int]:
-        """Fetch a user's bank balance using Discord user resolution."""
         user = await self._resolve_bank_user(user_id)
         if not user:
-            return None
+            return False, 0
 
         try:
-            return await bank.get_balance(user)
+            balance = await bank.get_balance(user)
+            # Allow going into debt, but check minimum for dispatch
+            return balance >= amount, balance
         except Exception as e:
             log.error(f"Error fetching balance for user {user_id}: {e}")
             return None
