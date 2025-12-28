@@ -120,8 +120,8 @@ class PoliceChief(commands.Cog):
                         message = await channel.fetch_message(profile.dashboard_message_id)
                         await message.edit(embed=embed, view=view)
                         await ctx.send(
-                            "📊 Dashboard refreshed. Use the buttons below to navigate.",
-                            delete_after=8
+                            f"📊 Dashboard refreshed. [Open your dashboard]({message.jump_url})",
+                            suppress_embeds=True
                         )
                         return
                     except discord.NotFound:
