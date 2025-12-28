@@ -15,7 +15,7 @@ class DashboardView(BaseView):
     """Main dashboard menu view."""
     
     def __init__(self, cog, profile: PlayerProfile, user: discord.User):
-        super().__init__(timeout=300)
+        super().__init__(timeout=60)
         self.cog = cog
         self.profile = profile
         self.user = user
