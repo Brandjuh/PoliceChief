@@ -11,7 +11,7 @@ from redbot.core import bank
 from redbot.core.bot import Red
 import discord
 
-from ..models import PlayerProfile, Mission, Vehicle, Staff, District
+from ..models import PlayerProfile, Mission, Vehicle, Staff, District, DISPATCH_BASE_TABLES, DISPATCHER_STAFF_ID
 
 log = logging.getLogger("red.policechief.game_engine")
 
@@ -30,6 +30,10 @@ class GameEngine:
         Check if a mission can be dispatched.
         Returns (can_dispatch, reason_if_not)
         """
+        # Ensure a dispatcher is available to operate the center
+        if not self.has_active_dispatcher(profile):
+            return False, "Dispatch Center requires a dispatcher on duty"
+
         # Check station level
         if profile.station_level < mission.min_station_level:
             return False, f"Requires station level {mission.min_station_level}"
@@ -59,8 +63,54 @@ class GameEngine:
             
             if not available:
                 return False, f"No available {staff_type} staff"
-        
+
         return True, ""
+
+    def has_active_dispatcher(self, profile: PlayerProfile) -> bool:
+        """Return True if the dispatch center has a dispatcher assigned and available."""
+        if profile.get_staff_count(DISPATCHER_STAFF_ID) == 0:
+            return False
+        return profile.is_staff_available(DISPATCHER_STAFF_ID)
+
+    def get_dispatch_table_count(self, profile: PlayerProfile) -> int:
+        """Number of dispatch tables available, including expansions."""
+        tables = DISPATCH_BASE_TABLES
+
+        for upgrade_id in profile.owned_upgrades:
+            upgrade = self.content.upgrades.get(upgrade_id)
+            if upgrade and upgrade.effect_type == "dispatch_capacity":
+                tables += int(upgrade.effect_value)
+
+        return max(1, tables)
+
+    def get_available_dispatch_slots(self, profile: PlayerProfile) -> int:
+        """
+        Calculate how many dispatch slots are currently free for automation.
+        Limited by dispatch tables and active missions already running.
+        """
+        if not self.has_active_dispatcher(profile):
+            return 0
+
+        tables = self.get_dispatch_table_count(profile)
+        occupied = len(profile.active_missions)
+        return max(0, tables - occupied)
+
+    def describe_automation_status(self, profile: PlayerProfile) -> Tuple[bool, str, int]:
+        """Return (ready, message, available_slots) for automation state."""
+        if not profile.automation_enabled:
+            return False, "Automation is disabled", 0
+
+        if not profile.has_automation_access():
+            return False, "Dispatch Center upgrade required", 0
+
+        if not self.has_active_dispatcher(profile):
+            return False, "No dispatcher on duty", 0
+
+        slots = self.get_available_dispatch_slots(profile)
+        if slots <= 0:
+            return False, "All dispatch tables are currently busy", 0
+
+        return True, f"{slots} dispatch slot(s) available", slots
     
     def calculate_dispatch_cost(self, profile: PlayerProfile, mission: Mission) -> int:
         """Calculate the total cost to dispatch a mission."""

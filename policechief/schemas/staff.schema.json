@@ -22,7 +22,8 @@
           "salary_per_tick": {"type": "integer", "minimum": 0},
           "success_bonus": {"type": "number", "minimum": 0},
           "cooldown_minutes": {"type": "integer", "minimum": 0},
-          "min_station_level": {"type": "integer", "minimum": 1}
+          "min_station_level": {"type": "integer", "minimum": 1},
+          "requires_vehicle": {"type": "boolean"}
         },
         "additionalProperties": false
       }

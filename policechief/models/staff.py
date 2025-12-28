@@ -19,6 +19,7 @@ class Staff:
     success_bonus: float  # Multiplier to mission success chance (e.g., 1.1 = +10%)
     cooldown_minutes: int  # How long staff is unavailable after dispatch
     min_station_level: int = 1
+    requires_vehicle: bool = True  # Whether this staff type needs a vehicle seat
     
     def get_display_name(self) -> str:
         """Get formatted display name."""
