@@ -1,0 +1,37 @@
+{
+  "staff": [
+    {
+      "id": "patrol_officer",
+      "name": "Patrol Officer",
+      "description": "Standard police officer for routine patrols and responses",
+      "staff_type": "officer",
+      "hire_cost": 300,
+      "salary_per_tick": 15,
+      "success_bonus": 1.0,
+      "cooldown_minutes": 25,
+      "min_station_level": 1
+    },
+    {
+      "id": "detective",
+      "name": "Detective",
+      "description": "Experienced investigator for complex cases",
+      "staff_type": "detective",
+      "hire_cost": 800,
+      "salary_per_tick": 35,
+      "success_bonus": 1.15,
+      "cooldown_minutes": 40,
+      "min_station_level": 1
+    },
+    {
+      "id": "swat_officer",
+      "name": "SWAT Officer",
+      "description": "Elite tactical officer for high-risk situations",
+      "staff_type": "swat",
+      "hire_cost": 2000,
+      "salary_per_tick": 60,
+      "success_bonus": 1.25,
+      "cooldown_minutes": 60,
+      "min_station_level": 3
+    }
+  ]
+}

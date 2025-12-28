@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "District Schema",
+  "type": "object",
+  "required": ["districts"],
+  "properties": {
+    "districts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id", "name", "description", "unlock_cost",
+          "mission_reward_multiplier", "mission_difficulty_modifier"
+        ],
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "unlock_cost": {"type": "integer", "minimum": 0},
+          "mission_reward_multiplier": {"type": "number", "minimum": 0},
+          "mission_difficulty_modifier": {"type": "integer"},
+          "min_station_level": {"type": "integer", "minimum": 1, "default": 1}
+        }
+      }
+    }
+  }
+}

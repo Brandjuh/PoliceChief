@@ -1,0 +1,9 @@
+{
+  "author": ["BrandjuhNL"],
+  "description": "An idle/management game where you build and manage a police station. Features menu-based UI, passive income, automation, and data-driven content packs.",
+  "install_msg": "Thanks for installing PoliceChief! Use `[p]pc menu` to start your police station. Default starting items are provided in the data packs.",
+  "short": "Idle police station management game",
+  "tags": ["game", "economy", "management", "idle"],
+  "type": "COG",
+  "end_user_data_statement": "This cog stores user game profiles including station progress, owned items, and statistics."
+}

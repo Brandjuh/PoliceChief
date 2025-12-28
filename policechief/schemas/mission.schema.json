@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mission Schema",
+  "type": "object",
+  "required": ["missions"],
+  "properties": {
+    "missions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id", "name", "description", "district",
+          "required_vehicle_types", "required_staff_types",
+          "base_reward", "base_duration", "base_success_chance",
+          "fuel_cost", "heat_change", "reputation_change_success",
+          "reputation_change_failure"
+        ],
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "district": {"type": "string"},
+          "required_vehicle_types": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "required_staff_types": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "base_reward": {"type": "integer", "minimum": 0},
+          "base_duration": {"type": "integer", "minimum": 1},
+          "base_success_chance": {"type": "integer", "minimum": 0, "maximum": 100},
+          "fuel_cost": {"type": "integer", "minimum": 0},
+          "heat_change": {"type": "integer"},
+          "reputation_change_success": {"type": "integer"},
+          "reputation_change_failure": {"type": "integer"},
+          "min_station_level": {"type": "integer", "minimum": 1, "default": 1}
+        }
+      }
+    }
+  }
+}

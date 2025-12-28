@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Upgrade Schema",
+  "type": "object",
+  "required": ["upgrades"],
+  "properties": {
+    "upgrades": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id", "name", "description", "cost",
+          "effect_type", "effect_value"
+        ],
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "cost": {"type": "integer", "minimum": 0},
+          "effect_type": {"type": "string"},
+          "effect_value": {"type": "number"},
+          "min_station_level": {"type": "integer", "minimum": 1, "default": 1},
+          "required_upgrade": {"type": ["string", "null"], "default": null}
+        }
+      }
+    }
+  }
+}
