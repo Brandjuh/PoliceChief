@@ -144,7 +144,7 @@ class GameEngine:
         
         # Apply cooldowns to used resources
         now = datetime.utcnow()
-        
+
         # Set vehicle cooldowns
         for vehicle_type in mission.required_vehicle_types:
             for vehicle_id, vehicle in self.content.vehicles.items():
@@ -160,6 +160,10 @@ class GameEngine:
                     cooldown_end = now + timedelta(minutes=staff.cooldown_minutes)
                     profile.staff_cooldowns[staff_id] = cooldown_end
                     break
+
+        # Track mission in progress for visibility
+        mission_end_time = now + timedelta(minutes=mission.base_duration)
+        profile.add_active_mission(mission.id, mission.name, mission_end_time)
         
         # Update statistics and reputation
         if success:

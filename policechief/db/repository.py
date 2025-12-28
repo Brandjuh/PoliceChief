@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Optional, Dict
 from datetime import datetime
 
-from ..models import PlayerProfile
+from ..models import PlayerProfile, ActiveMission
 
 log = logging.getLogger("red.policechief.repository")
 
@@ -53,9 +53,9 @@ class Repository:
                     INSERT INTO player_profiles (
                         user_id, station_level, station_name, current_district,
                         unlocked_districts, owned_vehicles, staff_roster,
-                        owned_upgrades, active_policies, heat_level, reputation,
-                        last_tick_ts, automation_enabled
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        owned_upgrades, active_policies, active_missions,
+                        heat_level, reputation, last_tick_ts, automation_enabled
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         user_id, profile.station_level, profile.station_name,
@@ -65,6 +65,7 @@ class Repository:
                         json.dumps(profile.staff_roster),
                         json.dumps(profile.owned_upgrades),
                         json.dumps(profile.active_policies),
+                        json.dumps([]),
                         profile.heat_level, profile.reputation,
                         None,  # last_tick_ts
                         0  # automation_enabled
@@ -85,6 +86,7 @@ class Repository:
         """Save a player profile."""
         async with self._get_user_lock(profile.user_id):
             async with aiosqlite.connect(self.db_path) as db:
+                profile.prune_expired_missions()
                 await db.execute(
                     """
                     UPDATE player_profiles SET
@@ -96,6 +98,7 @@ class Repository:
                         staff_roster = ?,
                         owned_upgrades = ?,
                         active_policies = ?,
+                        active_missions = ?,
                         heat_level = ?,
                         reputation = ?,
                         last_tick_ts = ?,
@@ -120,6 +123,16 @@ class Repository:
                         json.dumps(profile.staff_roster),
                         json.dumps(profile.owned_upgrades),
                         json.dumps(profile.active_policies),
+                        json.dumps(
+                            [
+                                {
+                                    "mission_id": mission.mission_id,
+                                    "name": mission.name,
+                                    "ends_at": mission.ends_at.isoformat()
+                                }
+                                for mission in profile.active_missions
+                            ]
+                        ),
                         profile.heat_level,
                         profile.reputation,
                         profile.last_tick_ts.isoformat() if profile.last_tick_ts else None,
@@ -160,7 +173,20 @@ class Repository:
             staff_cooldowns_data = json.loads(row[16])
             staff_cooldowns = {k: datetime.fromisoformat(v) for k, v in staff_cooldowns_data.items()}
         
-        return PlayerProfile(
+        active_missions = []
+        if len(row) > 23 and row[23]:
+            active_missions_data = json.loads(row[23])
+            active_missions = [
+                ActiveMission(
+                    mission_id=mission.get("mission_id", ""),
+                    name=mission.get("name", "Unknown Mission"),
+                    ends_at=datetime.fromisoformat(mission["ends_at"])
+                )
+                for mission in active_missions_data
+                if mission.get("ends_at")
+            ]
+
+        profile = PlayerProfile(
             user_id=row[0],
             station_level=row[1],
             station_name=row[2],
@@ -181,5 +207,9 @@ class Repository:
             total_missions_completed=row[17],
             total_missions_failed=row[18],
             total_income_earned=row[19],
-            total_expenses_paid=row[20]
+            total_expenses_paid=row[20],
+            active_missions=active_missions
         )
+
+        profile.prune_expired_missions()
+        return profile
