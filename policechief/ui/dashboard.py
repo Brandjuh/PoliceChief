@@ -13,9 +13,9 @@ from ..models import PlayerProfile
 
 class DashboardView(BaseView):
     """Main dashboard menu view."""
-    
+
     def __init__(self, cog, profile: PlayerProfile, user: discord.User):
-        super().__init__(timeout=60)
+        super().__init__(timeout=300)
         self.cog = cog
         self.profile = profile
         self.user = user
@@ -33,9 +33,10 @@ class DashboardView(BaseView):
             self.add_item(AutomationButton())
         else:
             self.add_item(AutomationLockedButton())
-        
+
         self.add_item(HelpButton())
         self.add_item(RefreshButton())
+        self.add_item(CloseDashboardButton())
     
     async def build_embed(self) -> discord.Embed:
         """Build the dashboard embed."""
@@ -316,3 +317,28 @@ class RefreshButton(discord.ui.Button):
                 "Error refreshing profile",
                 ephemeral=True
             )
+
+
+class CloseDashboardButton(discord.ui.Button):
+    """Button to close the dashboard and clear stored references."""
+
+    def __init__(self):
+        super().__init__(
+            style=discord.ButtonStyle.danger,
+            label="Close",
+            custom_id="pc:dashboard:close:",
+            emoji="❌",
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        profile = self.view.profile
+        profile.dashboard_message_id = None
+        profile.dashboard_channel_id = None
+        await self.view.cog.repository.save_profile(profile)
+
+        await interaction.response.edit_message(
+            content="Dashboard closed. Use `!pc` to reopen.",
+            embed=None,
+            view=None,
+        )
+        self.view.stop()
