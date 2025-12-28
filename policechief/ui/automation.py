@@ -5,11 +5,12 @@ Author: BrandjuhNL
 
 import discord
 
+from .base import BaseView
 from .helpers import build_info_embed, build_success_embed
 from ..models import PlayerProfile
 
 
-class AutomationView(discord.ui.View):
+class AutomationView(BaseView):
     """Automation management view."""
     
     def __init__(self, cog, profile: PlayerProfile, user: discord.User):

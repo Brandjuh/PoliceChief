@@ -4,13 +4,13 @@ Author: BrandjuhNL
 """
 
 import discord
-from redbot.core import bank
 
+from .base import BaseView
 from .helpers import build_info_embed, build_error_embed, build_success_embed, format_credits
 from ..models import PlayerProfile
 
 
-class DispatchView(discord.ui.View):
+class DispatchView(BaseView):
     """Dispatch view for selecting and launching missions."""
     
     def __init__(self, cog, profile: PlayerProfile, user: discord.User):
@@ -32,10 +32,8 @@ class DispatchView(discord.ui.View):
     
     async def build_embed(self) -> discord.Embed:
         """Build the dispatch embed."""
-        try:
-            balance = await bank.get_balance(self.user.id)
-        except:
-            balance = 0
+        balance = await self.cog.game_engine.get_balance(self.user.id)
+        display_balance = balance if balance is not None else 0
         
         embed = build_info_embed(
             f"🚨 Dispatch Center - {self.profile.current_district.title()}",
@@ -45,7 +43,7 @@ class DispatchView(discord.ui.View):
         embed.add_field(
             name="Your Resources",
             value=(
-                f"Balance: {format_credits(balance)} credits\n"
+                f"Balance: {format_credits(display_balance)} credits\n"
                 f"Reputation: {self.profile.reputation}/100\n"
                 f"Heat: {self.profile.heat_level}/100"
             ),
@@ -119,7 +117,7 @@ class MissionSelect(discord.ui.Select):
         await interaction.response.edit_message(embed=embed, view=detail_view)
 
 
-class MissionDetailView(discord.ui.View):
+class MissionDetailView(BaseView):
     """View showing mission details with dispatch option."""
     
     def __init__(self, cog, profile: PlayerProfile, user: discord.User, mission):
@@ -141,10 +139,8 @@ class MissionDetailView(discord.ui.View):
     
     async def build_embed(self) -> discord.Embed:
         """Build mission detail embed."""
-        try:
-            balance = await bank.get_balance(self.user.id)
-        except:
-            balance = 0
+        balance = await self.cog.game_engine.get_balance(self.user.id)
+        display_balance = balance if balance is not None else 0
         
         embed = build_info_embed(
             f"📋 Mission: {self.mission.name}",
@@ -177,11 +173,13 @@ class MissionDetailView(discord.ui.View):
         can_dispatch, reason = self.cog.game_engine.can_dispatch_mission(self.profile, self.mission)
         
         # Check balance
-        if balance < cost:
+        if balance is None:
+            can_dispatch = False
+            reason = "Bank unavailable"
+        elif balance < cost:
             can_dispatch = False
             reason = f"Insufficient funds (need {format_credits(cost)} credits)"
-        
-        if balance < self.cog.game_engine.MINIMUM_BALANCE:
+        elif balance < self.cog.game_engine.MINIMUM_BALANCE:
             can_dispatch = False
             reason = f"Balance below minimum ({format_credits(self.cog.game_engine.MINIMUM_BALANCE)} credits required)"
         
@@ -215,15 +213,14 @@ class DispatchButton(discord.ui.Button):
     
     async def callback(self, interaction: discord.Interaction):
         # Double-check balance
-        try:
-            balance = await bank.get_balance(interaction.user.id)
-        except:
+        balance = await self.view.cog.game_engine.get_balance(interaction.user.id)
+        if balance is None:
             await interaction.response.send_message(
                 embed=build_error_embed("Error", "Failed to check balance"),
                 ephemeral=True
             )
             return
-        
+
         cost = self.view.cog.game_engine.calculate_dispatch_cost(self.view.profile, self.mission)
         
         if balance < cost or balance < self.view.cog.game_engine.MINIMUM_BALANCE:

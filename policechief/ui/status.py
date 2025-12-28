@@ -4,13 +4,13 @@ Author: BrandjuhNL
 """
 
 import discord
-from redbot.core import bank
 
+from .base import BaseView
 from .helpers import build_info_embed, format_credits
 from ..models import PlayerProfile
 
 
-class StatusView(discord.ui.View):
+class StatusView(BaseView):
     """Status view showing detailed statistics."""
     
     def __init__(self, cog, profile: PlayerProfile, user: discord.User):
@@ -24,10 +24,8 @@ class StatusView(discord.ui.View):
     async def build_embed(self) -> discord.Embed:
         """Build the status embed."""
         # Get current balance
-        try:
-            balance = await bank.get_balance(self.user.id)
-        except:
-            balance = 0
+        balance = await self.cog.game_engine.get_balance(self.user.id)
+        display_balance = balance if balance is not None else 0
         
         embed = build_info_embed(
             f"📊 Station Status - {self.profile.station_name}",
@@ -49,7 +47,7 @@ class StatusView(discord.ui.View):
         embed.add_field(
             name="Resources",
             value=(
-                f"Balance: {format_credits(balance)} credits\n"
+                f"Balance: {format_credits(display_balance)} credits\n"
                 f"Reputation: {self.profile.reputation}/100\n"
                 f"Heat Level: {self.profile.heat_level}/100"
             ),

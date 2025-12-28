@@ -162,13 +162,10 @@ class TickEngine:
             
             # Calculate cost and check balance
             cost = self.game_engine.calculate_dispatch_cost(profile, mission)
-            balance = 0
-            try:
-                from redbot.core import bank
-                balance = await bank.get_balance(profile.user_id)
-            except:
+            balance = await self.game_engine.get_balance(profile.user_id)
+            if balance is None:
                 continue
-            
+
             if balance < cost:
                 continue
             
