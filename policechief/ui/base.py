@@ -12,14 +12,6 @@ class BaseView(discord.ui.View):
     def __init__(self, *, timeout: float | None = 300):
         super().__init__(timeout=timeout)
 
-        # The message this view is attached to. Used for timeout cleanup.
-        self.message: discord.Message | None = None
-
-    def attach_message(self, message: discord.Message) -> "BaseView":
-        """Bind the view to a message so we can clean it up on timeout."""
-        self.message = message
-        return self
-
     async def on_timeout(self) -> None:
         """Clear interactive components when the view expires."""
         if not getattr(self, "message", None):
