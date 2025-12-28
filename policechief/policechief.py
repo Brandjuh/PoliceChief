@@ -106,14 +106,25 @@ class PoliceChief(commands.Cog):
         # Close any existing dashboard before opening a new one
         if profile.dashboard_message_id and profile.dashboard_channel_id:
             channel = self.bot.get_channel(profile.dashboard_channel_id)
-            if channel:
-                try:
-                    old_message = await channel.fetch_message(profile.dashboard_message_id)
-                    await old_message.edit(view=None)
-                except discord.NotFound:
-                    pass
-                except Exception as e:
-                    log.warning(f"Failed to close existing dashboard message: {e}")
+            if channel and channel.id == ctx.channel.id:
+                existing_channel = channel
+
+        if existing_channel:
+            try:
+                channel = self.bot.get_channel(profile.dashboard_channel_id)
+                if channel:
+                    try:
+                        message = await channel.fetch_message(profile.dashboard_message_id)
+                        await message.edit(embed=embed, view=view)
+                        await ctx.send(
+                            f"📊 Dashboard refreshed. [Open your dashboard]({message.jump_url})",
+                            suppress_embeds=True
+                        )
+                        return
+                    except discord.NotFound:
+                        pass
+            except Exception as e:
+                log.warning(f"Failed to update existing dashboard message: {e}")
 
         # Send new message
         message = await ctx.send(embed=embed, view=view)
