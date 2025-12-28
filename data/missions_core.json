@@ -1,0 +1,52 @@
+{
+  "missions": [
+    {
+      "id": "traffic_stop",
+      "name": "Traffic Stop",
+      "description": "Routine traffic violation - issue citation and ensure compliance",
+      "district": "downtown",
+      "required_vehicle_types": ["patrol"],
+      "required_staff_types": ["officer"],
+      "base_reward": 150,
+      "base_duration": 15,
+      "base_success_chance": 85,
+      "fuel_cost": 20,
+      "heat_change": 1,
+      "reputation_change_success": 2,
+      "reputation_change_failure": -1,
+      "min_station_level": 1
+    },
+    {
+      "id": "burglary_investigation",
+      "name": "Burglary Investigation",
+      "description": "Investigate a residential break-in and collect evidence",
+      "district": "downtown",
+      "required_vehicle_types": ["patrol"],
+      "required_staff_types": ["officer", "detective"],
+      "base_reward": 450,
+      "base_duration": 45,
+      "base_success_chance": 65,
+      "fuel_cost": 50,
+      "heat_change": 3,
+      "reputation_change_success": 5,
+      "reputation_change_failure": -3,
+      "min_station_level": 1
+    },
+    {
+      "id": "gang_surveillance",
+      "name": "Gang Surveillance",
+      "description": "Monitor suspected gang activity in the industrial district",
+      "district": "industrial",
+      "required_vehicle_types": ["patrol", "unmarked"],
+      "required_staff_types": ["detective"],
+      "base_reward": 800,
+      "base_duration": 90,
+      "base_success_chance": 55,
+      "fuel_cost": 100,
+      "heat_change": 8,
+      "reputation_change_success": 10,
+      "reputation_change_failure": -5,
+      "min_station_level": 2
+    }
+  ]
+}

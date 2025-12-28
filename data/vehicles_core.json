@@ -1,0 +1,37 @@
+{
+  "vehicles": [
+    {
+      "id": "standard_patrol",
+      "name": "Standard Patrol Car",
+      "description": "Basic police cruiser for routine patrols and traffic enforcement",
+      "vehicle_type": "patrol",
+      "purchase_cost": 500,
+      "maintenance_cost": 25,
+      "fuel_efficiency": 1.0,
+      "cooldown_minutes": 20,
+      "min_station_level": 1
+    },
+    {
+      "id": "unmarked_sedan",
+      "name": "Unmarked Sedan",
+      "description": "Covert vehicle for surveillance and detective work",
+      "vehicle_type": "unmarked",
+      "purchase_cost": 1200,
+      "maintenance_cost": 40,
+      "fuel_efficiency": 0.9,
+      "cooldown_minutes": 30,
+      "min_station_level": 2
+    },
+    {
+      "id": "swat_van",
+      "name": "SWAT Response Van",
+      "description": "Heavy-duty vehicle for high-risk operations",
+      "vehicle_type": "swat",
+      "purchase_cost": 3000,
+      "maintenance_cost": 80,
+      "fuel_efficiency": 1.5,
+      "cooldown_minutes": 60,
+      "min_station_level": 3
+    }
+  ]
+}

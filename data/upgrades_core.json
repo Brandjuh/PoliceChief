@@ -1,0 +1,34 @@
+{
+  "upgrades": [
+    {
+      "id": "dispatch_center",
+      "name": "Dispatch Center",
+      "description": "Advanced communications center that enables automation features",
+      "cost": 3000,
+      "effect_type": "automation",
+      "effect_value": 1.0,
+      "min_station_level": 2,
+      "required_upgrade": null
+    },
+    {
+      "id": "fuel_efficiency",
+      "name": "Fuel Efficiency Program",
+      "description": "Driver training and vehicle optimization reduces fuel costs",
+      "cost": 1500,
+      "effect_type": "cost_reduction",
+      "effect_value": 0.15,
+      "min_station_level": 1,
+      "required_upgrade": null
+    },
+    {
+      "id": "advanced_training",
+      "name": "Advanced Officer Training",
+      "description": "Enhanced training program improves mission success rates",
+      "cost": 2500,
+      "effect_type": "success_boost",
+      "effect_value": 0.10,
+      "min_station_level": 2,
+      "required_upgrade": null
+    }
+  ]
+}
