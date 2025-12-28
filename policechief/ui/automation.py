@@ -5,11 +5,12 @@ Author: BrandjuhNL
 
 import discord
 
+from .base import BaseView
 from .helpers import build_info_embed, build_success_embed
 from ..models import PlayerProfile
 
 
-class AutomationView(discord.ui.View):
+class AutomationView(BaseView):
     """Automation management view."""
     
     def __init__(self, cog, profile: PlayerProfile, user: discord.User):
@@ -104,8 +105,9 @@ class EnableAutomationButton(discord.ui.Button):
         # Refresh view
         new_view = AutomationView(self.view.cog, self.view.profile, self.view.user)
         new_embed = await new_view.build_embed()
-        
+
         await interaction.response.edit_message(embed=new_embed, view=new_view)
+        new_view.attach_message(interaction.message)
         await interaction.followup.send(embed=success_embed, ephemeral=True)
 
 
@@ -132,8 +134,9 @@ class DisableAutomationButton(discord.ui.Button):
         # Refresh view
         new_view = AutomationView(self.view.cog, self.view.profile, self.view.user)
         new_embed = await new_view.build_embed()
-        
+
         await interaction.response.edit_message(embed=new_embed, view=new_view)
+        new_view.attach_message(interaction.message)
         await interaction.followup.send(embed=success_embed, ephemeral=True)
 
 
@@ -153,3 +156,4 @@ class BackButton(discord.ui.Button):
         view = DashboardView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)

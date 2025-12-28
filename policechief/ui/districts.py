@@ -4,13 +4,13 @@ Author: BrandjuhNL
 """
 
 import discord
-from redbot.core import bank
 
+from .base import BaseView
 from .helpers import build_info_embed, build_error_embed, build_success_embed, format_credits
 from ..models import PlayerProfile
 
 
-class DistrictsView(discord.ui.View):
+class DistrictsView(BaseView):
     """Districts management view."""
     
     def __init__(self, cog, profile: PlayerProfile, user: discord.User):
@@ -29,14 +29,12 @@ class DistrictsView(discord.ui.View):
     
     async def build_embed(self) -> discord.Embed:
         """Build the districts embed."""
-        try:
-            balance = await bank.get_balance(self.user.id)
-        except:
-            balance = 0
+        balance = await self.cog.game_engine.get_balance(self.user.id)
+        display_balance = balance if balance is not None else 0
         
         embed = build_info_embed(
             "🗺️ District Management",
-            f"Unlock and manage districts\nBalance: {format_credits(balance)} credits"
+            f"Unlock and manage districts\nBalance: {format_credits(display_balance)} credits"
         )
         
         embed.add_field(
@@ -145,21 +143,21 @@ class DistrictSelect(discord.ui.Select):
             # Refresh view
             new_view = DistrictsView(self.view.cog, self.view.profile, self.view.user)
             new_embed = await new_view.build_embed()
-            
+
             await interaction.response.edit_message(embed=new_embed, view=new_view)
+            new_view.attach_message(interaction.message)
             await interaction.followup.send(embed=success_embed, ephemeral=True)
             return
         
         # Need to unlock - check balance
-        try:
-            balance = await bank.get_balance(interaction.user.id)
-        except:
+        balance = await self.view.cog.game_engine.get_balance(interaction.user.id)
+        if balance is None:
             await interaction.response.send_message(
                 embed=build_error_embed("Error", "Failed to check balance"),
                 ephemeral=True
             )
             return
-        
+
         if balance < district.unlock_cost:
             await interaction.response.send_message(
                 embed=build_error_embed(
@@ -203,8 +201,9 @@ class DistrictSelect(discord.ui.Select):
         # Refresh view
         new_view = DistrictsView(self.view.cog, self.view.profile, self.view.user)
         new_embed = await new_view.build_embed()
-        
+
         await interaction.response.edit_message(embed=new_embed, view=new_view)
+        new_view.attach_message(interaction.message)
         await interaction.followup.send(embed=success_embed, ephemeral=True)
 
 
@@ -224,3 +223,4 @@ class BackButton(discord.ui.Button):
         view = DashboardView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)

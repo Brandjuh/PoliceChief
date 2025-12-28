@@ -4,14 +4,14 @@ Author: BrandjuhNL
 """
 
 import discord
-from redbot.core import bank
 from typing import Optional
 
+from .base import BaseView
 from .helpers import build_info_embed, format_credits
 from ..models import PlayerProfile
 
 
-class DashboardView(discord.ui.View):
+class DashboardView(BaseView):
     """Main dashboard menu view."""
     
     def __init__(self, cog, profile: PlayerProfile, user: discord.User):
@@ -40,9 +40,8 @@ class DashboardView(discord.ui.View):
     async def build_embed(self) -> discord.Embed:
         """Build the dashboard embed."""
         # Get current balance
-        try:
-            balance = await bank.get_balance(self.user.id)
-        except:
+        balance = await self.cog.game_engine.get_balance(self.user.id)
+        if balance is None:
             balance = 0
         
         embed = build_info_embed(
@@ -109,6 +108,7 @@ class StatusButton(discord.ui.Button):
         view = StatusView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)
 
 
 class DispatchButton(discord.ui.Button):
@@ -127,6 +127,7 @@ class DispatchButton(discord.ui.Button):
         view = DispatchView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)
 
 
 class FleetButton(discord.ui.Button):
@@ -145,6 +146,7 @@ class FleetButton(discord.ui.Button):
         view = FleetView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)
 
 
 class StaffButton(discord.ui.Button):
@@ -163,6 +165,7 @@ class StaffButton(discord.ui.Button):
         view = StaffView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)
 
 
 class DistrictsButton(discord.ui.Button):
@@ -181,6 +184,7 @@ class DistrictsButton(discord.ui.Button):
         view = DistrictsView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)
 
 
 class UpgradesButton(discord.ui.Button):
@@ -199,6 +203,7 @@ class UpgradesButton(discord.ui.Button):
         view = UpgradesView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)
 
 
 class AutomationButton(discord.ui.Button):
@@ -217,6 +222,7 @@ class AutomationButton(discord.ui.Button):
         view = AutomationView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)
 
 
 class AutomationLockedButton(discord.ui.Button):
@@ -293,6 +299,7 @@ class RefreshButton(discord.ui.Button):
                 )
             
             await interaction.response.edit_message(embed=embed, view=new_view)
+            new_view.attach_message(interaction.message)
         else:
             await interaction.response.send_message(
                 "Error refreshing profile",

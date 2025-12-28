@@ -8,6 +8,8 @@ import logging
 from datetime import datetime, timedelta
 from typing import Tuple, Dict, Optional
 from redbot.core import bank
+from redbot.core.bot import Red
+import discord
 
 from ..models import PlayerProfile, Mission, Vehicle, Staff, District
 
@@ -18,8 +20,9 @@ class GameEngine:
     """Core game logic and calculations."""
     
     MINIMUM_BALANCE = 100  # Minimum credits required to dispatch
-    
-    def __init__(self, content_loader):
+
+    def __init__(self, bot: Red, content_loader):
+        self.bot = bot
         self.content = content_loader
     
     def can_dispatch_mission(self, profile: PlayerProfile, mission: Mission) -> Tuple[bool, str]:
@@ -202,18 +205,41 @@ class GameEngine:
         costs["total"] = costs["salaries"] + costs["maintenance"]
         return costs
     
+    async def _resolve_bank_user(self, user_id: int) -> Optional[discord.abc.User]:
+        """Return a Discord user object for bank operations."""
+        user = self.bot.get_user(user_id)
+        if user:
+            return user
+
+        try:
+            return await self.bot.fetch_user(user_id)
+        except Exception as e:
+            log.error(f"Failed to resolve user {user_id} for bank operations: {e}")
+            return None
+
     async def check_sufficient_balance(self, user_id: int, amount: int) -> Tuple[bool, int]:
         """
         Check if user has sufficient balance for a transaction.
         Returns (has_sufficient, current_balance)
         """
-        try:
-            balance = await bank.get_balance(user_id)
-            # Allow going into debt, but check minimum for dispatch
-            return balance >= amount, balance
-        except Exception as e:
-            log.error(f"Error checking balance for user {user_id}: {e}")
+        balance = await self.get_balance(user_id)
+        if balance is None:
             return False, 0
+
+        # Allow going into debt, but check minimum for dispatch
+        return balance >= amount, balance
+
+    async def get_balance(self, user_id: int) -> Optional[int]:
+        """Fetch a user's bank balance using Discord user resolution."""
+        user = await self._resolve_bank_user(user_id)
+        if not user:
+            return None
+
+        try:
+            return await bank.get_balance(user)
+        except Exception as e:
+            log.error(f"Error fetching balance for user {user_id}: {e}")
+            return None
     
     async def apply_bank_transaction(
         self,
@@ -225,22 +251,26 @@ class GameEngine:
         Apply a bank transaction (positive = deposit, negative = withdraw).
         Returns (success, new_balance)
         """
+        user = await self._resolve_bank_user(user_id)
+        if not user:
+            return False, None
+
         try:
             if amount > 0:
                 # Deposit
-                await bank.deposit_credits(user_id, amount)
-                new_balance = await bank.get_balance(user_id)
+                await bank.deposit_credits(user, amount)
+                new_balance = await bank.get_balance(user)
                 log.info(f"Deposited {amount} credits to user {user_id} - {reason}")
                 return True, new_balance
             elif amount < 0:
                 # Withdraw
-                await bank.withdraw_credits(user_id, abs(amount))
-                new_balance = await bank.get_balance(user_id)
+                await bank.withdraw_credits(user, abs(amount))
+                new_balance = await bank.get_balance(user)
                 log.info(f"Withdrew {abs(amount)} credits from user {user_id} - {reason}")
                 return True, new_balance
             else:
                 # No transaction
-                balance = await bank.get_balance(user_id)
+                balance = await bank.get_balance(user)
                 return True, balance
         except Exception as e:
             log.error(f"Bank transaction failed for user {user_id} ({reason}): {e}")

@@ -52,7 +52,7 @@ class PoliceChief(commands.Cog):
         await self.content_loader.load_all()
         
         # Initialize game engine
-        self.game_engine = GameEngine(self.content_loader)
+        self.game_engine = GameEngine(self.bot, self.content_loader)
         
         # Initialize tick engine
         self.tick_engine = TickEngine(
@@ -104,23 +104,34 @@ class PoliceChief(commands.Cog):
             )
         
         # Send or update dashboard message
+        existing_channel = None
         if profile.dashboard_message_id and profile.dashboard_channel_id:
+            # Only reuse the stored dashboard when it lives in the same channel the user invoked from
+            # to avoid silent edits to messages the user cannot currently see.
+            channel = self.bot.get_channel(profile.dashboard_channel_id)
+            if channel and channel.id == ctx.channel.id:
+                existing_channel = channel
+
+        if existing_channel:
             try:
-                channel = self.bot.get_channel(profile.dashboard_channel_id)
-                if channel:
-                    try:
-                        message = await channel.fetch_message(profile.dashboard_message_id)
-                        await message.edit(embed=embed, view=view)
-                        await ctx.tick()
-                        return
-                    except discord.NotFound:
-                        pass
+                message = await existing_channel.fetch_message(profile.dashboard_message_id)
+                await message.edit(embed=embed, view=view)
+                view.attach_message(message)
+                await ctx.send(
+                    "📊 Dashboard refreshed. Use the buttons below to navigate.",
+                    delete_after=8
+                )
+                return
+            except discord.NotFound:
+                # Message was deleted - fall through to sending a new one in the current channel
+                pass
             except Exception as e:
                 log.warning(f"Failed to update existing dashboard message: {e}")
-        
+
         # Send new message
         message = await ctx.send(embed=embed, view=view)
-        
+        view.attach_message(message)
+
         # Save message ID for future updates
         profile.dashboard_message_id = message.id
         profile.dashboard_channel_id = ctx.channel.id

@@ -4,13 +4,13 @@ Author: BrandjuhNL
 """
 
 import discord
-from redbot.core import bank
 
+from .base import BaseView
 from .helpers import build_info_embed, build_error_embed, build_success_embed, format_credits, format_time_remaining
 from ..models import PlayerProfile
 
 
-class FleetView(discord.ui.View):
+class FleetView(BaseView):
     """Fleet management view."""
     
     def __init__(self, cog, profile: PlayerProfile, user: discord.User):
@@ -29,14 +29,12 @@ class FleetView(discord.ui.View):
     
     async def build_embed(self) -> discord.Embed:
         """Build the fleet embed."""
-        try:
-            balance = await bank.get_balance(self.user.id)
-        except:
-            balance = 0
+        balance = await self.cog.game_engine.get_balance(self.user.id)
+        display_balance = balance if balance is not None else 0
         
         embed = build_info_embed(
             "🚓 Fleet Management",
-            f"Manage your vehicle fleet\nBalance: {format_credits(balance)} credits"
+            f"Manage your vehicle fleet\nBalance: {format_credits(display_balance)} credits"
         )
         
         # Show owned vehicles
@@ -120,15 +118,14 @@ class VehicleSelect(discord.ui.Select):
             return
         
         # Check balance
-        try:
-            balance = await bank.get_balance(interaction.user.id)
-        except:
+        balance = await self.view.cog.game_engine.get_balance(interaction.user.id)
+        if balance is None:
             await interaction.response.send_message(
                 embed=build_error_embed("Error", "Failed to check balance"),
                 ephemeral=True
             )
             return
-        
+
         if balance < vehicle.purchase_cost:
             await interaction.response.send_message(
                 embed=build_error_embed(
@@ -171,8 +168,9 @@ class VehicleSelect(discord.ui.Select):
         # Refresh view
         new_view = FleetView(self.view.cog, self.view.profile, self.view.user)
         new_embed = await new_view.build_embed()
-        
+
         await interaction.response.edit_message(embed=new_embed, view=new_view)
+        new_view.attach_message(interaction.message)
         await interaction.followup.send(embed=success_embed, ephemeral=True)
 
 
@@ -192,3 +190,4 @@ class BackButton(discord.ui.Button):
         view = DashboardView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)
