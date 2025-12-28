@@ -7,7 +7,7 @@ import discord
 
 from .base import BaseView
 from .helpers import build_info_embed, build_error_embed, build_success_embed, format_credits, format_time_remaining
-from ..models import PlayerProfile
+from ..models import DISPATCHER_STAFF_ID, PlayerProfile
 
 
 class StaffView(BaseView):
