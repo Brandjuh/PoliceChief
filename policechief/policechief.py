@@ -185,3 +185,84 @@ class PoliceChief(commands.Cog):
             )
         except Exception as e:
             await ctx.send(f"❌ Error: {e}")
+
+    @pcadmin.command(name="setprofile")
+    async def set_profile(
+        self,
+        ctx: commands.Context,
+        user: discord.User,
+        field: str,
+        *,
+        value: str,
+    ):
+        """Adjust basic profile fields for a user."""
+
+        field = field.lower()
+        profile = await self.repository.get_or_create_profile(user.id)
+
+        try:
+            if field == "station_name":
+                new_name = value.strip()
+                if not 3 <= len(new_name) <= 50:
+                    await ctx.send("❌ Station name must be between 3 and 50 characters.")
+                    return
+                old_value = profile.station_name
+                profile.station_name = new_name
+                change_text = f"Station name: `{old_value}` → `{new_name}`"
+            elif field == "station_level":
+                new_level = int(value)
+                if new_level < 1:
+                    await ctx.send("❌ Station level must be at least 1.")
+                    return
+                old_value = profile.station_level
+                profile.station_level = new_level
+                change_text = f"Station level: {old_value} → {new_level}"
+            elif field == "reputation":
+                new_rep = int(value)
+                if not 0 <= new_rep <= 100:
+                    await ctx.send("❌ Reputation must be between 0 and 100.")
+                    return
+                old_value = profile.reputation
+                profile.reputation = new_rep
+                change_text = f"Reputation: {old_value} → {new_rep}"
+            elif field == "heat":
+                new_heat = int(value)
+                if not 0 <= new_heat <= 100:
+                    await ctx.send("❌ Heat level must be between 0 and 100.")
+                    return
+                old_value = profile.heat_level
+                profile.heat_level = new_heat
+                change_text = f"Heat level: {old_value} → {new_heat}"
+            elif field == "automation":
+                normalized = value.strip().lower()
+                if normalized in {"true", "yes", "on", "1"}:
+                    new_state = True
+                elif normalized in {"false", "no", "off", "0"}:
+                    new_state = False
+                else:
+                    await ctx.send("❌ Automation value must be true/false.")
+                    return
+                old_value = profile.automation_enabled
+                profile.automation_enabled = new_state
+                change_text = f"Automation: {'ON' if old_value else 'OFF'} → {'ON' if new_state else 'OFF'}"
+            elif field == "district":
+                district_id = value.strip().lower()
+                if district_id not in self.content_loader.districts:
+                    await ctx.send("❌ Unknown district ID.")
+                    return
+                old_value = profile.current_district
+                profile.current_district = district_id
+                if district_id not in profile.unlocked_districts:
+                    profile.unlocked_districts.append(district_id)
+                change_text = f"Current district: {old_value} → {district_id}"
+            else:
+                await ctx.send(
+                    "❌ Unknown field. Use one of: station_name, station_level, reputation, heat, automation, district."
+                )
+                return
+        except ValueError:
+            await ctx.send("❌ Invalid value for the selected field.")
+            return
+
+        await self.repository.save_profile(profile)
+        await ctx.send(f"✅ Updated profile for {user.display_name}\n{change_text}")
