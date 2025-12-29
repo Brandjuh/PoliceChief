@@ -49,31 +49,39 @@ class FinancesView(BaseView):
             inline=False,
         )
 
-        # Recurring costs per tick
-        tick_costs = self.cog.game_engine.calculate_tick_costs(self.profile)
-        embed.add_field(
-            name="Expenses per 5 minutes",
-            value=(
-                f"Staff salaries: {format_credits(tick_costs['salaries'])} credits\n"
-                f"Vehicle maintenance: {format_credits(tick_costs['maintenance'])} credits\n"
-                f"Total burn rate: {format_credits(tick_costs['total'])} credits"
-            ),
-            inline=False,
+        missions = self.cog.content_loader.get_missions_for_district(
+            self.profile.current_district, self.profile.station_level
         )
+        sample_mission = missions[0] if missions else None
 
-        staff_lines = self._build_staff_cost_lines()
-        embed.add_field(
-            name="Staff costs (per tick)",
-            value="\n".join(staff_lines) if staff_lines else "No staff employed",
-            inline=False,
-        )
+        if sample_mission:
+            mission_costs = self.cog.game_engine.calculate_mission_operating_costs(
+                self.profile, sample_mission
+            )
+            embed.add_field(
+                name=f"Costs per mission ({sample_mission.base_duration}m)",
+                value=(
+                    f"Fuel: {format_credits(mission_costs['fuel'])} credits\n"
+                    f"Maintenance: {format_credits(mission_costs['maintenance'])} credits\n"
+                    f"Salaries: {format_credits(mission_costs['salaries'])} credits\n"
+                    f"Total operating cost: {format_credits(mission_costs['total'])} credits"
+                ),
+                inline=False,
+            )
 
-        vehicle_lines = self._build_vehicle_cost_lines()
-        embed.add_field(
-            name="Vehicle costs (per tick)",
-            value="\n".join(vehicle_lines) if vehicle_lines else "No vehicles owned",
-            inline=False,
-        )
+            staff_lines = self._build_staff_cost_lines(sample_mission.base_duration)
+            embed.add_field(
+                name="Staff costs (per mission)",
+                value="\n".join(staff_lines) if staff_lines else "No staff employed",
+                inline=False,
+            )
+
+            vehicle_lines = self._build_vehicle_cost_lines(sample_mission.base_duration)
+            embed.add_field(
+                name="Vehicle costs (per mission)",
+                value="\n".join(vehicle_lines) if vehicle_lines else "No vehicles owned",
+                inline=False,
+            )
 
         dispatch_multiplier, cost_reduction_lines = self._build_dispatch_cost_details()
         income_boost_lines, has_income_boost = self._build_income_boost_details()
@@ -82,7 +90,7 @@ class FinancesView(BaseView):
             name="Fuel & dispatch costs",
             value=(
                 f"Current fuel multiplier: x{dispatch_multiplier:.2f}\n"
-                "Failed missions charge the full dispatch cost.\n"
+                "Operating costs are paid when units are dispatched; failures yield no reward.\n"
                 f"Upgrades lowering costs:\n{cost_reduction_lines}"
             ),
             inline=False,
@@ -108,27 +116,29 @@ class FinancesView(BaseView):
         embed.set_footer(text="All amounts are in credits")
         return embed
 
-    def _build_staff_cost_lines(self) -> list[str]:
+    def _build_staff_cost_lines(self, duration_minutes: int) -> list[str]:
         lines: list[str] = []
+        duration_factor = duration_minutes / 5
         for staff_id, quantity in self.profile.staff_roster.items():
             staff = self.cog.content_loader.staff.get(staff_id)
             if not staff:
                 continue
-            total_salary = staff.salary_per_tick * quantity
+            total_salary = int(staff.salary_per_tick * duration_factor * quantity)
             lines.append(
-                f"👮 {staff.name} x{quantity}: {format_credits(total_salary)} (per {staff.salary_per_tick} each)"
+                f"👮 {staff.name} x{quantity}: {format_credits(total_salary)} per mission"
             )
         return lines
 
-    def _build_vehicle_cost_lines(self) -> list[str]:
+    def _build_vehicle_cost_lines(self, duration_minutes: int) -> list[str]:
         lines: list[str] = []
+        duration_factor = duration_minutes / 5
         for vehicle_id, quantity in self.profile.owned_vehicles.items():
             vehicle = self.cog.content_loader.vehicles.get(vehicle_id)
             if not vehicle:
                 continue
-            total_maintenance = vehicle.maintenance_cost * quantity
+            total_maintenance = int(vehicle.maintenance_cost * duration_factor * quantity)
             lines.append(
-                f"🚓 {vehicle.name} x{quantity}: {format_credits(total_maintenance)} (per {vehicle.maintenance_cost} each)"
+                f"🚓 {vehicle.name} x{quantity}: {format_credits(total_maintenance)} per mission"
             )
         return lines
 

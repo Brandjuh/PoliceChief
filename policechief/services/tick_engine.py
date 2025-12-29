@@ -73,31 +73,41 @@ class TickEngine:
             messages.append(f"⚠️ Catch-up capped at {self.MAX_CATCHUP_HOURS} hours")
         
         ticks_to_process = int(time_since_last.total_seconds() / (self.TICK_INTERVAL_MINUTES * 60))
-        
-        if ticks_to_process == 0:
-            return messages
-        
-        log.info(f"Processing {ticks_to_process} catch-up ticks for user {profile.user_id}")
-        
+
+        if ticks_to_process > 0:
+            log.info(f"Processing {ticks_to_process} catch-up ticks for user {profile.user_id}")
+
         # Process each tick
         total_income = 0
         total_expenses = 0
         missions_completed = 0
         missions_failed = 0
-        
+
+        # Resolve any missions that already finished while the player was away
+        resolution = self.game_engine.resolve_completed_missions(profile)
+        total_income += resolution["income"]
+        total_expenses += resolution["expenses"]
+        missions_completed += resolution["completed"]
+        missions_failed += resolution["failed"]
+        if resolution["messages"]:
+            messages.extend(resolution["messages"])
+
         for i in range(ticks_to_process):
-            # Calculate recurring costs
-            costs = self.game_engine.calculate_tick_costs(profile)
-            total_expenses += costs["total"]
-            
             # If automation is enabled and dispatch center is available (upgrade or special access)
             if profile.automation_enabled and profile.has_automation_access():
                 # Auto-dispatch missions based on policies
                 auto_results = await self._auto_dispatch_missions(profile)
                 total_income += auto_results["income"]
                 total_expenses += auto_results["expenses"]
-                missions_completed += auto_results["completed"]
-                missions_failed += auto_results["failed"]
+
+        # Resolve again in case automated missions ended during the catch-up window
+        resolution = self.game_engine.resolve_completed_missions(profile)
+        total_income += resolution["income"]
+        total_expenses += resolution["expenses"]
+        missions_completed += resolution["completed"]
+        missions_failed += resolution["failed"]
+        if resolution["messages"]:
+            messages.extend(resolution["messages"])
         
         # Apply bank transactions
         net_change = total_income - total_expenses
@@ -179,8 +189,7 @@ class TickEngine:
             # Skip missions that are expected to lose money to reduce negative cashflow
             success_chance = self.game_engine.calculate_success_chance(profile, mission) / 100
             reward = self.game_engine.calculate_mission_reward(profile, mission)
-            failure_cost = cost * self.game_engine.FAILURE_PENALTY_MULTIPLIER
-            expected_profit = (success_chance * reward) - ((1 - success_chance) * failure_cost)
+            expected_profit = (success_chance * reward) - cost
 
             if expected_profit <= 0:
                 continue
@@ -193,14 +202,9 @@ class TickEngine:
                 continue
 
             # Dispatch the mission
-            success, amount, message = self.game_engine.dispatch_mission(profile, mission)
-
-            if success:
-                results["income"] += amount
-                results["completed"] += 1
-            else:
-                results["expenses"] += abs(amount)
-                results["failed"] += 1
+            _, amount, _ = self.game_engine.dispatch_mission(profile, mission)
+            # amount is negative because it represents costs paid upfront
+            results["expenses"] += abs(amount)
 
             dispatched += 1
         

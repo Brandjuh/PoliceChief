@@ -30,6 +30,13 @@ class ActiveMission:
     mission_id: str
     name: str
     ends_at: datetime
+    dispatched_at: datetime
+    operating_cost: int
+    potential_reward: int
+    success_chance: int
+    heat_change: int
+    reputation_success: int
+    reputation_failure: int
 
     def remaining_minutes(self, now: Optional[datetime] = None) -> int:
         """Return remaining minutes until completion (minimum 0)."""
@@ -229,10 +236,9 @@ class PlayerProfile:
             entries = self.staff_cooldowns.setdefault(staff_id, [])
             entries.extend([cooldown_end] * quantity)
 
-    def add_active_mission(self, mission_id: str, name: str, ends_at: datetime):
-        """Add a mission to the active missions list and clean up old entries."""
-        self.prune_expired_missions(reference_time=ends_at)
-        self.active_missions.append(ActiveMission(mission_id=mission_id, name=name, ends_at=ends_at))
+    def add_active_mission(self, mission: ActiveMission):
+        """Add a mission to the active missions list without discarding pending entries."""
+        self.active_missions.append(mission)
 
     def prune_expired_missions(self, reference_time: Optional[datetime] = None):
         """Remove missions that have already ended."""

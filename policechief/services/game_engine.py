@@ -8,6 +8,7 @@ import random
 from collections import Counter
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Tuple
+from .tick_engine import TickEngine
 from redbot.core import bank
 from redbot.core.bot import Red
 import discord
@@ -118,20 +119,64 @@ class GameEngine:
 
         return True, f"{slots} dispatch slot(s) available", slots
     
-    def calculate_dispatch_cost(self, profile: PlayerProfile, mission: Mission) -> int:
-        """Calculate the total cost to dispatch a mission."""
-        # Base fuel cost
-        total_cost = mission.fuel_cost
-        
-        # Apply cost reduction upgrades
+    def calculate_mission_operating_costs(self, profile: PlayerProfile, mission: Mission) -> Dict[str, int]:
+        """Calculate mission-specific operating costs (fuel, maintenance, salaries)."""
+        costs = {
+            "fuel": mission.fuel_cost,
+            "maintenance": 0,
+            "salaries": 0,
+            "total": 0,
+        }
+
+        # Apply cost reduction upgrades to fuel only
         cost_multiplier = 1.0
         for upgrade_id in profile.owned_upgrades:
             upgrade = self.content.upgrades.get(upgrade_id)
             if upgrade and upgrade.effect_type == "cost_reduction":
                 cost_multiplier *= (1.0 - upgrade.effect_value)
-        
-        total_cost = int(total_cost * cost_multiplier)
-        return max(1, total_cost)  # Minimum 1 credit
+
+        costs["fuel"] = max(1, int(costs["fuel"] * cost_multiplier))
+
+        # Mission duration is used to translate per-tick costs into per-mission costs
+        duration_factor = mission.base_duration / TickEngine.TICK_INTERVAL_MINUTES
+
+        # Calculate maintenance based on vehicles actually required
+        vehicle_requirements = Counter(mission.required_vehicle_types)
+        for vehicle_type, quantity_needed in vehicle_requirements.items():
+            for vehicle_id, vehicle in self.content.vehicles.items():
+                if vehicle.vehicle_type != vehicle_type:
+                    continue
+                owned = profile.get_vehicle_count(vehicle_id)
+                if owned <= 0:
+                    continue
+                used = min(quantity_needed, owned)
+                costs["maintenance"] += int(vehicle.maintenance_cost * duration_factor * used)
+                quantity_needed -= used
+                if quantity_needed <= 0:
+                    break
+
+        # Calculate salary costs for staff assigned
+        staff_requirements = Counter(mission.required_staff_types)
+        for staff_type, quantity_needed in staff_requirements.items():
+            for staff_id, staff in self.content.staff.items():
+                if staff.staff_type != staff_type:
+                    continue
+                owned = profile.get_staff_count(staff_id)
+                if owned <= 0:
+                    continue
+                used = min(quantity_needed, owned)
+                costs["salaries"] += int(staff.salary_per_tick * duration_factor * used)
+                quantity_needed -= used
+                if quantity_needed <= 0:
+                    break
+
+        costs["total"] = max(1, costs["fuel"] + costs["maintenance"] + costs["salaries"])
+        return costs
+
+    def calculate_dispatch_cost(self, profile: PlayerProfile, mission: Mission) -> int:
+        """Calculate the total cost to dispatch a mission."""
+        costs = self.calculate_mission_operating_costs(profile, mission)
+        return costs["total"]
     
     def calculate_success_chance(self, profile: PlayerProfile, mission: Mission) -> int:
         """Calculate mission success chance (0-100)."""
@@ -201,19 +246,19 @@ class GameEngine:
         self,
         profile: PlayerProfile,
         mission: Mission
-    ) -> Tuple[bool, int, str]:
+    ) -> Tuple[ActiveMission, int, str]:
         """
         Execute a mission dispatch.
-        Returns (success, reward_or_cost, message)
+        Returns (active_mission, cost_change, message)
         """
-        # Calculate success
-        success_chance = self.calculate_success_chance(profile, mission)
-        success = random.randint(1, 100) <= success_chance
-        
-        # Apply cooldowns to used resources
         now = datetime.utcnow()
 
-        # Set vehicle cooldowns
+        # Calculate costs and success odds up front
+        operating_costs = self.calculate_mission_operating_costs(profile, mission)
+        success_chance = self.calculate_success_chance(profile, mission)
+        reward = self.calculate_mission_reward(profile, mission)
+
+        # Apply cooldowns to used resources
         vehicle_requirements = Counter(mission.required_vehicle_types)
         for vehicle_type, needed in vehicle_requirements.items():
             for vehicle_id, vehicle in self.content.vehicles.items():
@@ -232,7 +277,6 @@ class GameEngine:
                 profile.allocate_vehicles(Counter({vehicle_id: assign}), cooldown_end)
                 needed -= assign
 
-        # Set staff cooldowns
         staff_requirements = Counter(mission.required_staff_types)
         for staff_type, needed in staff_requirements.items():
             for staff_id, staff in self.content.staff.items():
@@ -251,53 +295,77 @@ class GameEngine:
                 profile.allocate_staff(Counter({staff_id: assign}), cooldown_end)
                 needed -= assign
 
-        # Track mission in progress for visibility
         mission_end_time = now + timedelta(minutes=mission.base_duration)
-        profile.add_active_mission(mission.id, mission.name, mission_end_time)
-        
-        # Update statistics and reputation
-        if success:
-            profile.total_missions_completed += 1
-            reward = self.calculate_mission_reward(profile, mission)
-            profile.total_income_earned += reward
-            profile.reputation = min(100, profile.reputation + mission.reputation_change_success)
-            profile.heat_level = max(0, min(100, profile.heat_level + mission.heat_change))
-            
-            message = f"Mission successful! Earned {reward} credits."
-            return True, reward, message
-        else:
-            profile.total_missions_failed += 1
-            # On failure, lose the full dispatch cost
-            cost = int(self.calculate_dispatch_cost(profile, mission) * self.FAILURE_PENALTY_MULTIPLIER)
-            profile.total_expenses_paid += cost
-            profile.reputation = max(0, profile.reputation + mission.reputation_change_failure)
-            profile.heat_level = max(0, min(100, profile.heat_level + abs(mission.heat_change)))
-            
-            message = f"Mission failed. Lost {cost} credits in wasted fuel."
-            return False, -cost, message
-    
-    def calculate_tick_costs(self, profile: PlayerProfile) -> Dict[str, int]:
-        """Calculate all recurring costs for a tick."""
-        costs = {
-            "salaries": 0,
-            "maintenance": 0,
-            "total": 0
+        active_mission = ActiveMission(
+            mission_id=mission.id,
+            name=mission.name,
+            ends_at=mission_end_time,
+            dispatched_at=now,
+            operating_cost=operating_costs["total"],
+            potential_reward=reward,
+            success_chance=success_chance,
+            heat_change=mission.heat_change,
+            reputation_success=mission.reputation_change_success,
+            reputation_failure=mission.reputation_change_failure,
+        )
+        profile.add_active_mission(active_mission)
+        profile.total_expenses_paid += operating_costs["total"]
+
+        message = (
+            f"🚨 Units dispatched for {mission.name}. "
+            f"Estimated completion in {mission.base_duration} minutes."
+        )
+
+        return active_mission, -operating_costs["total"], message
+
+    def resolve_completed_missions(self, profile: PlayerProfile) -> Dict[str, int | list]:
+        """Resolve missions that have reached their end time."""
+        now = datetime.utcnow()
+        completed_messages: list[str] = []
+        income = 0
+        expenses = 0
+        completed = 0
+        failed = 0
+
+        remaining_missions = []
+        for mission_state in profile.active_missions:
+            if mission_state.ends_at > now:
+                remaining_missions.append(mission_state)
+                continue
+
+            roll = random.randint(1, 100)
+            success = roll <= mission_state.success_chance
+
+            if success:
+                reward = mission_state.potential_reward
+                income += reward
+                profile.total_missions_completed += 1
+                profile.total_income_earned += reward
+                profile.reputation = min(100, profile.reputation + mission_state.reputation_success)
+                profile.heat_level = max(0, min(100, profile.heat_level + mission_state.heat_change))
+                completed += 1
+                completed_messages.append(
+                    f"✅ {mission_state.name} completed (+{reward} credits)"
+                )
+            else:
+                # Costs were already paid upfront; failure just wastes the effort
+                profile.total_missions_failed += 1
+                profile.reputation = max(0, profile.reputation + mission_state.reputation_failure)
+                profile.heat_level = max(0, min(100, profile.heat_level + abs(mission_state.heat_change)))
+                failed += 1
+                completed_messages.append(
+                    f"❌ {mission_state.name} failed (no reward)"
+                )
+
+        profile.active_missions = remaining_missions
+
+        return {
+            "income": income,
+            "expenses": expenses,
+            "completed": completed,
+            "failed": failed,
+            "messages": completed_messages,
         }
-        
-        # Calculate staff salaries
-        for staff_id, quantity in profile.staff_roster.items():
-            staff = self.content.staff.get(staff_id)
-            if staff:
-                costs["salaries"] += staff.salary_per_tick * quantity
-        
-        # Calculate vehicle maintenance
-        for vehicle_id, quantity in profile.owned_vehicles.items():
-            vehicle = self.content.vehicles.get(vehicle_id)
-            if vehicle:
-                costs["maintenance"] += vehicle.maintenance_cost * quantity
-        
-        costs["total"] = costs["salaries"] + costs["maintenance"]
-        return costs
     
     async def _resolve_bank_user(self, user_id: int) -> Optional[discord.abc.User]:
         """Return a Discord user object for bank operations."""
