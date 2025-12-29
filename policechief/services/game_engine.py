@@ -13,7 +13,16 @@ from redbot.core import bank
 from redbot.core.bot import Red
 import discord
 
-from ..models import PlayerProfile, Mission, Vehicle, Staff, District, DISPATCH_BASE_TABLES, DISPATCHER_STAFF_ID
+from ..models import (
+    ActiveMission,
+    PlayerProfile,
+    Mission,
+    Vehicle,
+    Staff,
+    District,
+    DISPATCH_BASE_TABLES,
+    DISPATCHER_STAFF_ID,
+)
 
 log = logging.getLogger("red.policechief.game_engine")
 
