@@ -175,6 +175,16 @@ class TickEngine:
 
             # Calculate cost and check balance
             cost = self.game_engine.calculate_dispatch_cost(profile, mission)
+
+            # Skip missions that are expected to lose money to reduce negative cashflow
+            success_chance = self.game_engine.calculate_success_chance(profile, mission) / 100
+            reward = self.game_engine.calculate_mission_reward(profile, mission)
+            failure_cost = cost / 2  # Dispatch cost loss on failure
+            expected_profit = (success_chance * reward) - ((1 - success_chance) * failure_cost)
+
+            if expected_profit <= 0:
+                continue
+
             balance = await self.game_engine.get_balance(profile.user_id)
             if balance is None:
                 continue
