@@ -29,6 +29,7 @@ An idle/management game cog for Red-DiscordBot where players build and manage th
 - `[p]pcadmin reloadpacks` - Reload all content packs from JSON files
 - `[p]pcadmin resetprofile <user>` - Reset a user's profile
 - `[p]pcadmin addcredits <user> <amount>` - Add credits to a user's bank account
+- `[p]pcadmin setprofile <user> <field> <value>` - Adjust a profile's name, level, reputation, heat, automation, or district
 
 ## Gameplay Guide
 
