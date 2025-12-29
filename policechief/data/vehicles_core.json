@@ -11,6 +11,7 @@
       "cooldown_minutes": 20,
       "seating_capacity": 2,
       "prisoner_capacity": 1,
+      "equipment_slots": 1,
       "min_station_level": 1
     },
     {
@@ -24,6 +25,7 @@
       "cooldown_minutes": 30,
       "seating_capacity": 2,
       "prisoner_capacity": 1,
+      "equipment_slots": 1,
       "min_station_level": 2
     },
     {
@@ -37,6 +39,7 @@
       "cooldown_minutes": 60,
       "seating_capacity": 8,
       "prisoner_capacity": 2,
+      "equipment_slots": 2,
       "min_station_level": 3
     }
   ]

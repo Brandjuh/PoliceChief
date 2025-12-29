@@ -24,6 +24,7 @@
           "cooldown_minutes": {"type": "integer", "minimum": 1},
           "seating_capacity": {"type": "integer", "minimum": 0},
           "prisoner_capacity": {"type": "integer", "minimum": 0},
+          "equipment_slots": {"type": "integer", "minimum": 0, "default": 0},
           "min_station_level": {"type": "integer", "minimum": 1, "default": 1}
         }
       }

@@ -23,7 +23,8 @@
           "success_bonus": {"type": "number", "minimum": 0},
           "cooldown_minutes": {"type": "integer", "minimum": 0},
           "min_station_level": {"type": "integer", "minimum": 1},
-          "requires_vehicle": {"type": "boolean"}
+          "requires_vehicle": {"type": "boolean"},
+          "equipment_slots": {"type": "integer", "minimum": 0, "default": 0}
         },
         "additionalProperties": false
       }

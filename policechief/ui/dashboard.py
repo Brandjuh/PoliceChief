@@ -26,6 +26,7 @@ class DashboardView(BaseView):
         self.add_item(DispatchButton())
         self.add_item(FleetButton())
         self.add_item(StaffButton())
+        self.add_item(EquipmentButton())
         self.add_item(DistrictsButton())
         self.add_item(UpgradesButton())
         
@@ -197,6 +198,26 @@ class StaffButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         from .staff import StaffView
         view = StaffView(self.view.cog, self.view.profile, self.view.user)
+        embed = await view.build_embed()
+        await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)
+
+
+class EquipmentButton(discord.ui.Button):
+    """Equipment button."""
+
+    def __init__(self):
+        super().__init__(
+            style=discord.ButtonStyle.primary,
+            label="Equipment",
+            custom_id="pc:dashboard:equipment:",
+            emoji="🧰",
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        from .equipment import EquipmentView
+
+        view = EquipmentView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
         view.attach_message(interaction.message)

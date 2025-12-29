@@ -10,7 +10,8 @@
       "success_bonus": 1.0,
       "cooldown_minutes": 10,
       "min_station_level": 1,
-      "requires_vehicle": false
+      "requires_vehicle": false,
+      "equipment_slots": 1
     },
     {
       "id": "patrol_officer",
@@ -21,7 +22,8 @@
       "salary_per_tick": 15,
       "success_bonus": 1.0,
       "cooldown_minutes": 25,
-      "min_station_level": 1
+      "min_station_level": 1,
+      "equipment_slots": 1
     },
     {
       "id": "detective",
@@ -32,7 +34,8 @@
       "salary_per_tick": 35,
       "success_bonus": 1.15,
       "cooldown_minutes": 40,
-      "min_station_level": 1
+      "min_station_level": 1,
+      "equipment_slots": 1
     },
     {
       "id": "swat_officer",
@@ -43,7 +46,8 @@
       "salary_per_tick": 60,
       "success_bonus": 1.25,
       "cooldown_minutes": 60,
-      "min_station_level": 3
+      "min_station_level": 3,
+      "equipment_slots": 2
     }
   ]
 }

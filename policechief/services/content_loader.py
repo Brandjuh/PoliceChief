@@ -10,7 +10,7 @@ from typing import Dict, List, Type
 
 import jsonschema
 
-from ..models import Mission, Vehicle, District, Staff, Upgrade, Policy
+from ..models import Equipment, Mission, Vehicle, District, Staff, Upgrade, Policy
 
 log = logging.getLogger("red.policechief.content_loader")
 
@@ -28,6 +28,7 @@ class ContentLoader:
         self.staff: Dict[str, Staff] = {}
         self.upgrades: Dict[str, Upgrade] = {}
         self.policies: Dict[str, Policy] = {}
+        self.equipment: Dict[str, Equipment] = {}
     
     async def load_all(self):
         """Load all content packs."""
@@ -39,12 +40,13 @@ class ContentLoader:
         await self._load_staff()
         await self._load_upgrades()
         await self._load_policies()
+        await self._load_equipment()
 
         log.info(
             f"Loaded content: {len(self.missions)} missions, "
             f"{len(self.vehicles)} vehicles, {len(self.districts)} districts, "
             f"{len(self.staff)} staff types, {len(self.upgrades)} upgrades, "
-            f"{len(self.policies)} policies"
+            f"{len(self.policies)} policies, {len(self.equipment)} equipment items"
         )
     
     async def _load_missions(self):
@@ -117,6 +119,18 @@ class ContentLoader:
             top_key="policies",
             model_cls=Policy,
             target=self.policies,
+        )
+
+    async def _load_equipment(self):
+        """Load equipment packs."""
+        self.equipment = {}
+        schema = self._load_schema("equipment.schema.json")
+        await self._load_pack(
+            pattern="equipment_*.json",
+            schema=schema,
+            top_key="equipment",
+            model_cls=Equipment,
+            target=self.equipment,
         )
 
     def _load_schema(self, filename: str) -> dict:
@@ -218,3 +232,10 @@ class ContentLoader:
                 continue
             available.append(upgrade)
         return available
+
+    def get_available_equipment(self, min_level: int) -> List[Equipment]:
+        """Get all equipment available to purchase for a station level."""
+        return [
+            e for e in self.equipment.values()
+            if e.min_station_level <= min_level
+        ]

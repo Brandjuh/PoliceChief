@@ -20,6 +20,7 @@ class Staff:
     cooldown_minutes: int  # How long staff is unavailable after dispatch
     min_station_level: int = 1
     requires_vehicle: bool = True  # Whether this staff type needs a vehicle seat
+    equipment_slots: int = 0  # Equipment slots available to this staff type
     
     def get_display_name(self) -> str:
         """Get formatted display name."""

@@ -14,6 +14,7 @@ from .district import District
 from .staff import Staff
 from .upgrade import Upgrade
 from .policy import Policy
+from .equipment import Equipment
 
 __all__ = [
     "PlayerProfile",
@@ -26,4 +27,5 @@ __all__ = [
     "Staff",
     "Upgrade",
     "Policy",
+    "Equipment",
 ]
