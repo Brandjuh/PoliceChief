@@ -79,6 +79,21 @@ class StatusView(BaseView):
             ),
             inline=True
         )
+
+        total_equipment = sum(self.profile.equipment_inventory.values())
+        assigned_equipment = sum(
+            self.profile.get_total_assigned_equipment(eq_id)
+            for eq_id in self.profile.equipment_inventory.keys()
+        )
+        embed.add_field(
+            name="Equipment",
+            value=(
+                f"Pieces Owned: {total_equipment}\n"
+                f"Assigned: {assigned_equipment}\n"
+                f"Storage: {max(0, total_equipment - assigned_equipment)}"
+            ),
+            inline=True
+        )
         
         # Mission statistics
         total_missions = self.profile.total_missions_completed + self.profile.total_missions_failed

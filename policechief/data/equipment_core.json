@@ -1,0 +1,42 @@
+{
+  "equipment": [
+    {
+      "id": "nav_module",
+      "name": "Navigation Module",
+      "description": "Satellite navigation gear that cuts travel time for patrol units.",
+      "target": "vehicle",
+      "purchase_cost": 300,
+      "sell_value": 180,
+      "effect_type": "duration_multiplier",
+      "effect_value": 0.9,
+      "slot_size": 1,
+      "min_station_level": 1,
+      "allowed_vehicle_types": ["patrol", "unmarked"]
+    },
+    {
+      "id": "tactical_kit",
+      "name": "Tactical Kit",
+      "description": "Specialized gear that helps staff resolve risky situations faster.",
+      "target": "staff",
+      "purchase_cost": 550,
+      "sell_value": 350,
+      "effect_type": "duration_multiplier",
+      "effect_value": 0.85,
+      "slot_size": 1,
+      "min_station_level": 2,
+      "allowed_staff_types": ["swat", "officer"]
+    },
+    {
+      "id": "briefing_tablet",
+      "name": "Briefing Tablet",
+      "description": "Digital case files that improve decision making during missions.",
+      "target": "any",
+      "purchase_cost": 400,
+      "sell_value": 250,
+      "effect_type": "success_bonus",
+      "effect_value": 0.05,
+      "slot_size": 1,
+      "min_station_level": 1
+    }
+  ]
+}

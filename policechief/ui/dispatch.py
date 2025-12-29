@@ -168,9 +168,23 @@ class MissionDetailView(BaseView):
         )
         
         # Mission details
-        success_chance = self.cog.game_engine.calculate_success_chance(self.profile, self.mission)
+        duration, vehicle_plan, staff_plan = self.cog.game_engine.get_effective_mission_duration(
+            self.profile, self.mission
+        )
+        success_chance = self.cog.game_engine.calculate_success_chance(
+            self.profile,
+            self.mission,
+            vehicle_plan=vehicle_plan,
+            staff_plan=staff_plan,
+        )
         reward = self.cog.game_engine.calculate_mission_reward(self.profile, self.mission)
-        cost_breakdown = self.cog.game_engine.calculate_mission_operating_costs(self.profile, self.mission)
+        cost_breakdown = self.cog.game_engine.calculate_mission_operating_costs(
+            self.profile,
+            self.mission,
+            vehicle_plan=vehicle_plan,
+            staff_plan=staff_plan,
+            duration_override=duration,
+        )
         cost = cost_breakdown["total"]
         
         embed.add_field(
@@ -182,7 +196,7 @@ class MissionDetailView(BaseView):
                 f"Salaries: {format_credits(cost_breakdown['salaries'])} credits\n"
                 f"Total Cost: {format_credits(cost)} credits\n"
                 f"Success Chance: {success_chance}%\n"
-                f"Duration: {self.mission.base_duration} minutes"
+                f"Duration: {duration} minutes"
             ),
             inline=True
         )

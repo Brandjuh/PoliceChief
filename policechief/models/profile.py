@@ -58,6 +58,10 @@ class PlayerProfile:
     staff_roster: Dict[str, int] = field(default_factory=dict)  # staff_id -> quantity
     owned_upgrades: List[str] = field(default_factory=list)  # upgrade_ids
     active_policies: List[str] = field(default_factory=list)  # policy_ids
+    equipment_inventory: Dict[str, int] = field(default_factory=dict)  # equipment_id -> quantity
+    equipment_assignments: Dict[str, Dict[str, Dict[str, int]]] = field(
+        default_factory=lambda: {"vehicles": {}, "staff": {}}
+    )  # target -> id -> equipment counts
     active_missions: List[ActiveMission] = field(default_factory=list)
     heat_level: int = 0  # 0-100
     reputation: int = 50  # 0-100
@@ -157,6 +161,8 @@ class PlayerProfile:
         if quantity >= current:
             self.owned_vehicles.pop(vehicle_id, None)
             self.vehicle_cooldowns.pop(vehicle_id, None)
+            self._ensure_assignment_buckets()
+            self.equipment_assignments.get("vehicles", {}).pop(vehicle_id, None)
         elif current > 0:
             self.owned_vehicles[vehicle_id] = current - quantity
 
@@ -165,14 +171,29 @@ class PlayerProfile:
         current = self.staff_roster.get(staff_id, 0)
         self.staff_roster[staff_id] = current + quantity
 
+    def add_equipment(self, equipment_id: str, quantity: int = 1):
+        """Add equipment pieces to the shared inventory."""
+        current = self.equipment_inventory.get(equipment_id, 0)
+        self.equipment_inventory[equipment_id] = current + quantity
+
     def remove_staff(self, staff_id: str, quantity: int = 1):
         """Remove staff from the roster, clearing cooldowns when depleted."""
         current = self.staff_roster.get(staff_id, 0)
         if quantity >= current:
             self.staff_roster.pop(staff_id, None)
             self.staff_cooldowns.pop(staff_id, None)
+            self._ensure_assignment_buckets()
+            self.equipment_assignments.get("staff", {}).pop(staff_id, None)
         elif current > 0:
             self.staff_roster[staff_id] = current - quantity
+
+    def remove_equipment(self, equipment_id: str, quantity: int = 1):
+        """Remove equipment from inventory without touching assignments."""
+        current = self.equipment_inventory.get(equipment_id, 0)
+        if quantity >= current:
+            self.equipment_inventory.pop(equipment_id, None)
+        elif current > 0:
+            self.equipment_inventory[equipment_id] = current - quantity
     
     def _prune_cooldowns(self, cooldowns: Dict[str, List[datetime]]):
         """Remove expired cooldown entries from a cooldown mapping."""
@@ -201,6 +222,149 @@ class PlayerProfile:
         self._prune_cooldowns(self.staff_cooldowns)
         busy = len(self.staff_cooldowns.get(staff_id, []))
         return max(0, owned - busy)
+
+    def _ensure_assignment_buckets(self):
+        """Make sure the equipment assignment mapping exists."""
+        if not self.equipment_assignments:
+            self.equipment_assignments = {"vehicles": {}, "staff": {}}
+        if "vehicles" not in self.equipment_assignments:
+            self.equipment_assignments["vehicles"] = {}
+        if "staff" not in self.equipment_assignments:
+            self.equipment_assignments["staff"] = {}
+
+    def get_total_assigned_equipment(self, equipment_id: str) -> int:
+        """Total number of equipment pieces currently slotted anywhere."""
+        self._ensure_assignment_buckets()
+        total = 0
+        for target_group in self.equipment_assignments.values():
+            for equipment_counts in target_group.values():
+                total += equipment_counts.get(equipment_id, 0)
+        return total
+
+    def get_unassigned_equipment(self, equipment_id: str) -> int:
+        """Equipment available in storage that is not slotted."""
+        owned = self.equipment_inventory.get(equipment_id, 0)
+        return max(0, owned - self.get_total_assigned_equipment(equipment_id))
+
+    def get_equipment_for_vehicle(self, vehicle_id: str) -> Dict[str, int]:
+        """Get equipment assigned to a specific vehicle type."""
+        self._ensure_assignment_buckets()
+        return self.equipment_assignments["vehicles"].get(vehicle_id, {})
+
+    def get_equipment_for_staff(self, staff_id: str) -> Dict[str, int]:
+        """Get equipment assigned to a specific staff type."""
+        self._ensure_assignment_buckets()
+        return self.equipment_assignments["staff"].get(staff_id, {})
+
+    def _get_used_slots(self, assignments: Dict[str, int], equipment_catalog) -> int:
+        """Calculate used slot capacity from assigned items."""
+        slots = 0
+        for equipment_id, quantity in assignments.items():
+            equipment = equipment_catalog.get(equipment_id)
+            if equipment:
+                slots += equipment.slot_size * quantity
+        return slots
+
+    def get_vehicle_slot_usage(self, vehicle_id: str, vehicles, equipment_catalog) -> Dict[str, int]:
+        """Return used and total slots for a vehicle type."""
+        vehicle = vehicles.get(vehicle_id)
+        total_slots = vehicle.equipment_slots * self.get_vehicle_count(vehicle_id) if vehicle else 0
+        assigned = self.get_equipment_for_vehicle(vehicle_id)
+        used_slots = self._get_used_slots(assigned, equipment_catalog)
+        return {"used": used_slots, "total": total_slots}
+
+    def get_staff_slot_usage(self, staff_id: str, staff_catalog, equipment_catalog) -> Dict[str, int]:
+        """Return used and total slots for a staff type."""
+        staff = staff_catalog.get(staff_id)
+        total_slots = staff.equipment_slots * self.get_staff_count(staff_id) if staff else 0
+        assigned = self.get_equipment_for_staff(staff_id)
+        used_slots = self._get_used_slots(assigned, equipment_catalog)
+        return {"used": used_slots, "total": total_slots}
+
+    def assign_equipment_to_vehicle(
+        self,
+        vehicle_id: str,
+        equipment_id: str,
+        quantity: int,
+        vehicles,
+        equipment_catalog,
+    ) -> bool:
+        """Assign equipment to a vehicle type if slots and inventory allow."""
+        self._ensure_assignment_buckets()
+        vehicle = vehicles.get(vehicle_id)
+        equipment = equipment_catalog.get(equipment_id)
+        if not vehicle or not equipment:
+            return False
+
+        current_assignments = self.get_equipment_for_vehicle(vehicle_id)
+        usage = self.get_vehicle_slot_usage(vehicle_id, vehicles, equipment_catalog)
+        available_slots = max(0, usage["total"] - usage["used"])
+        needed_slots = equipment.slot_size * quantity
+        if needed_slots > available_slots:
+            return False
+
+        if self.get_unassigned_equipment(equipment_id) < quantity:
+            return False
+
+        updated = dict(current_assignments)
+        updated[equipment_id] = updated.get(equipment_id, 0) + quantity
+        self.equipment_assignments["vehicles"][vehicle_id] = updated
+        return True
+
+    def assign_equipment_to_staff(
+        self,
+        staff_id: str,
+        equipment_id: str,
+        quantity: int,
+        staff_catalog,
+        equipment_catalog,
+    ) -> bool:
+        """Assign equipment to a staff type if slots and inventory allow."""
+        self._ensure_assignment_buckets()
+        staff = staff_catalog.get(staff_id)
+        equipment = equipment_catalog.get(equipment_id)
+        if not staff or not equipment:
+            return False
+
+        current_assignments = self.get_equipment_for_staff(staff_id)
+        usage = self.get_staff_slot_usage(staff_id, staff_catalog, equipment_catalog)
+        available_slots = max(0, usage["total"] - usage["used"])
+        needed_slots = equipment.slot_size * quantity
+        if needed_slots > available_slots:
+            return False
+
+        if self.get_unassigned_equipment(equipment_id) < quantity:
+            return False
+
+        updated = dict(current_assignments)
+        updated[equipment_id] = updated.get(equipment_id, 0) + quantity
+        self.equipment_assignments["staff"][staff_id] = updated
+        return True
+
+    def unassign_equipment(
+        self, target: str, target_id: str, equipment_id: str, quantity: int = 1
+    ) -> bool:
+        """Remove equipment from a specific target and return it to storage."""
+        self._ensure_assignment_buckets()
+        if target not in self.equipment_assignments:
+            return False
+
+        target_map = self.equipment_assignments[target].get(target_id, {})
+        current = target_map.get(equipment_id, 0)
+        if current <= 0:
+            return False
+
+        if quantity >= current:
+            target_map.pop(equipment_id, None)
+        else:
+            target_map[equipment_id] = current - quantity
+
+        if not target_map:
+            self.equipment_assignments[target].pop(target_id, None)
+        else:
+            self.equipment_assignments[target][target_id] = target_map
+
+        return True
 
     def is_vehicle_available(self, vehicle_id: str) -> bool:
         """Check if at least one vehicle of this type is available (not on cooldown)."""

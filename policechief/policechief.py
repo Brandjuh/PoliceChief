@@ -158,7 +158,8 @@ class PoliceChief(commands.Cog):
             f"• {len(self.content_loader.districts)} districts\n"
             f"• {len(self.content_loader.staff)} staff types\n"
             f"• {len(self.content_loader.upgrades)} upgrades\n"
-            f"• {len(self.content_loader.policies)} policies"
+            f"• {len(self.content_loader.policies)} policies\n"
+            f"• {len(self.content_loader.equipment)} equipment items"
         )
     
     @pcadmin.command(name="resetprofile")

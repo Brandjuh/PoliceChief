@@ -20,6 +20,7 @@ class Vehicle:
     cooldown_minutes: int  # How long vehicle is unavailable after dispatch
     seating_capacity: int  # Number of personnel seats
     prisoner_capacity: int  # Number of prisoners that can be transported
+    equipment_slots: int = 0  # Available equipment slots per vehicle
     min_station_level: int = 1
     
     def get_display_name(self) -> str:

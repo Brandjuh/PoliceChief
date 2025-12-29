@@ -13,7 +13,7 @@ log = logging.getLogger("red.policechief.migrations")
 class MigrationManager:
     """Manages database schema migrations."""
     
-    CURRENT_VERSION = 2
+    CURRENT_VERSION = 3
     
     def __init__(self, db_path: Path):
         self.db_path = db_path
@@ -102,3 +102,19 @@ class MigrationManager:
             "UPDATE player_profiles SET active_missions = '[]' WHERE active_missions IS NULL"
         )
         log.info("Added active_missions column to player_profiles (v2)")
+
+    async def _migrate_to_v3(self, db: aiosqlite.Connection):
+        """Add equipment storage and assignments to player profiles."""
+        await db.execute(
+            "ALTER TABLE player_profiles ADD COLUMN equipment_inventory TEXT"
+        )
+        await db.execute(
+            "ALTER TABLE player_profiles ADD COLUMN equipment_assignments TEXT"
+        )
+        await db.execute(
+            "UPDATE player_profiles SET equipment_inventory = '{}' WHERE equipment_inventory IS NULL"
+        )
+        await db.execute(
+            "UPDATE player_profiles SET equipment_assignments = '{}' WHERE equipment_assignments IS NULL"
+        )
+        log.info("Added equipment columns to player_profiles (v3)")

@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Equipment Pack",
+  "type": "object",
+  "properties": {
+    "equipment": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "target": {"type": "string", "enum": ["vehicle", "staff", "any"]},
+          "purchase_cost": {"type": "integer", "minimum": 0},
+          "sell_value": {"type": "integer", "minimum": 0},
+          "effect_type": {"type": "string", "enum": ["duration_multiplier", "success_bonus"]},
+          "effect_value": {"type": "number"},
+          "slot_size": {"type": "integer", "minimum": 1, "default": 1},
+          "min_station_level": {"type": "integer", "minimum": 1, "default": 1},
+          "allowed_vehicle_types": {
+            "type": "array",
+            "items": {"type": "string"},
+            "default": []
+          },
+          "allowed_staff_types": {
+            "type": "array",
+            "items": {"type": "string"},
+            "default": []
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "target",
+          "purchase_cost",
+          "sell_value",
+          "effect_type",
+          "effect_value"
+        ]
+      }
+    }
+  },
+  "required": ["equipment"]
+}

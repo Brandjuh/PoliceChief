@@ -81,9 +81,121 @@ class GameEngine:
         """Return True if the dispatch center has a dispatcher assigned and available."""
         return self.get_available_dispatcher_count(profile) > 0
 
+    def _plan_allocation(
+        self,
+        requirements: Counter,
+        catalog: Dict[str, Vehicle] | Dict[str, Staff],
+        type_attribute: str,
+        availability_fn,
+    ) -> Counter:
+        """Plan concrete unit allocations for a mission requirement."""
+        plan: Counter = Counter()
+        for required_type, quantity_needed in requirements.items():
+            remaining = quantity_needed
+            for entity_id, entity in catalog.items():
+                if getattr(entity, type_attribute) != required_type:
+                    continue
+
+                available = availability_fn(entity_id)
+                if available <= 0:
+                    continue
+
+                use_amount = min(remaining, available)
+                if use_amount > 0:
+                    plan[entity_id] += use_amount
+                    remaining -= use_amount
+
+                if remaining <= 0:
+                    break
+
+            if remaining > 0:
+                return Counter()
+
+        return plan
+
+    def plan_resources_for_mission(
+        self, profile: PlayerProfile, mission: Mission
+    ) -> tuple[Counter, Counter]:
+        """Determine which concrete vehicles and staff will be used for a mission."""
+        vehicle_requirements = Counter(mission.required_vehicle_types)
+        staff_requirements = Counter(mission.required_staff_types)
+
+        vehicle_plan = self._plan_allocation(
+            vehicle_requirements,
+            self.content.vehicles,
+            "vehicle_type",
+            profile.get_available_vehicle_count,
+        )
+        staff_plan = self._plan_allocation(
+            staff_requirements,
+            self.content.staff,
+            "staff_type",
+            profile.get_available_staff_count,
+        )
+        return vehicle_plan, staff_plan
+
     def get_available_dispatcher_count(self, profile: PlayerProfile) -> int:
         """Return the number of dispatchers currently available."""
         return profile.get_available_staff_count(DISPATCHER_STAFF_ID)
+
+    def calculate_equipment_modifiers(
+        self,
+        profile: PlayerProfile,
+        vehicle_plan: Counter,
+        staff_plan: Counter,
+    ) -> dict:
+        """Aggregate duration and success modifiers from assigned equipment."""
+        duration_multiplier = 1.0
+        success_bonus = 0.0
+
+        for vehicle_id, used in vehicle_plan.items():
+            vehicle = self.content.vehicles.get(vehicle_id)
+            if not vehicle:
+                continue
+            for equipment_id, quantity in profile.get_equipment_for_vehicle(vehicle_id).items():
+                equipment = self.content.equipment.get(equipment_id)
+                if not equipment or not equipment.applies_to_vehicle(vehicle.vehicle_type):
+                    continue
+
+                active_items = min(quantity, used)
+                if equipment.is_duration_modifier():
+                    duration_multiplier *= equipment.effect_value ** active_items
+                elif equipment.is_success_modifier():
+                    success_bonus += equipment.effect_value * active_items
+
+        for staff_id, used in staff_plan.items():
+            staff = self.content.staff.get(staff_id)
+            if not staff:
+                continue
+            for equipment_id, quantity in profile.get_equipment_for_staff(staff_id).items():
+                equipment = self.content.equipment.get(equipment_id)
+                if not equipment or not equipment.applies_to_staff(staff.staff_type):
+                    continue
+
+                active_items = min(quantity, used)
+                if equipment.is_duration_modifier():
+                    duration_multiplier *= equipment.effect_value ** active_items
+                elif equipment.is_success_modifier():
+                    success_bonus += equipment.effect_value * active_items
+
+        return {
+            "duration_multiplier": max(0.25, duration_multiplier),
+            "success_bonus": success_bonus,
+        }
+
+    def get_effective_mission_duration(
+        self,
+        profile: PlayerProfile,
+        mission: Mission,
+        vehicle_plan: Optional[Counter] = None,
+        staff_plan: Optional[Counter] = None,
+    ) -> tuple[int, Counter, Counter]:
+        """Return the effective mission duration after equipment plus the plans used."""
+        vehicle_plan = vehicle_plan or self.plan_resources_for_mission(profile, mission)[0]
+        staff_plan = staff_plan or self.plan_resources_for_mission(profile, mission)[1]
+        equipment_modifiers = self.calculate_equipment_modifiers(profile, vehicle_plan, staff_plan)
+        duration = max(1, int(mission.base_duration * equipment_modifiers["duration_multiplier"]))
+        return duration, vehicle_plan, staff_plan
 
     def get_dispatch_table_count(self, profile: PlayerProfile) -> int:
         """Number of dispatch tables available, including expansions."""
@@ -128,7 +240,15 @@ class GameEngine:
 
         return True, f"{slots} dispatch slot(s) available", slots
     
-    def calculate_mission_operating_costs(self, profile: PlayerProfile, mission: Mission) -> Dict[str, int]:
+    def calculate_mission_operating_costs(
+        self,
+        profile: PlayerProfile,
+        mission: Mission,
+        *,
+        vehicle_plan: Optional[Counter] = None,
+        staff_plan: Optional[Counter] = None,
+        duration_override: Optional[int] = None,
+    ) -> Dict[str, int]:
         """Calculate mission-specific operating costs (fuel, maintenance, salaries)."""
         costs = {
             "fuel": mission.fuel_cost,
@@ -147,47 +267,46 @@ class GameEngine:
         costs["fuel"] = max(1, int(costs["fuel"] * cost_multiplier))
 
         # Mission duration is used to translate per-tick costs into per-mission costs
-        duration_factor = mission.base_duration / TickEngine.TICK_INTERVAL_MINUTES
+        mission_duration = duration_override if duration_override is not None else mission.base_duration
+        duration_factor = mission_duration / TickEngine.TICK_INTERVAL_MINUTES
 
-        # Calculate maintenance based on vehicles actually required
-        vehicle_requirements = Counter(mission.required_vehicle_types)
-        for vehicle_type, quantity_needed in vehicle_requirements.items():
-            for vehicle_id, vehicle in self.content.vehicles.items():
-                if vehicle.vehicle_type != vehicle_type:
-                    continue
-                owned = profile.get_vehicle_count(vehicle_id)
-                if owned <= 0:
-                    continue
-                used = min(quantity_needed, owned)
-                costs["maintenance"] += int(vehicle.maintenance_cost * duration_factor * used)
-                quantity_needed -= used
-                if quantity_needed <= 0:
-                    break
+        vehicle_plan = vehicle_plan or self.plan_resources_for_mission(profile, mission)[0]
+        for vehicle_id, used in vehicle_plan.items():
+            vehicle = self.content.vehicles.get(vehicle_id)
+            if not vehicle:
+                continue
+            costs["maintenance"] += int(vehicle.maintenance_cost * duration_factor * used)
 
-        # Calculate salary costs for staff assigned
-        staff_requirements = Counter(mission.required_staff_types)
-        for staff_type, quantity_needed in staff_requirements.items():
-            for staff_id, staff in self.content.staff.items():
-                if staff.staff_type != staff_type:
-                    continue
-                owned = profile.get_staff_count(staff_id)
-                if owned <= 0:
-                    continue
-                used = min(quantity_needed, owned)
-                costs["salaries"] += int(staff.salary_per_tick * duration_factor * used)
-                quantity_needed -= used
-                if quantity_needed <= 0:
-                    break
+        staff_plan = staff_plan or self.plan_resources_for_mission(profile, mission)[1]
+        for staff_id, used in staff_plan.items():
+            staff = self.content.staff.get(staff_id)
+            if not staff:
+                continue
+            costs["salaries"] += int(staff.salary_per_tick * duration_factor * used)
 
         costs["total"] = max(1, costs["fuel"] + costs["maintenance"] + costs["salaries"])
         return costs
 
     def calculate_dispatch_cost(self, profile: PlayerProfile, mission: Mission) -> int:
         """Calculate the total cost to dispatch a mission."""
-        costs = self.calculate_mission_operating_costs(profile, mission)
+        duration, vehicle_plan, staff_plan = self.get_effective_mission_duration(profile, mission)
+        costs = self.calculate_mission_operating_costs(
+            profile,
+            mission,
+            vehicle_plan=vehicle_plan,
+            staff_plan=staff_plan,
+            duration_override=duration,
+        )
         return costs["total"]
     
-    def calculate_success_chance(self, profile: PlayerProfile, mission: Mission) -> int:
+    def calculate_success_chance(
+        self,
+        profile: PlayerProfile,
+        mission: Mission,
+        *,
+        vehicle_plan: Optional[Counter] = None,
+        staff_plan: Optional[Counter] = None,
+    ) -> int:
         """Calculate mission success chance (0-100)."""
         base_chance = mission.base_success_chance
         
@@ -196,13 +315,18 @@ class GameEngine:
         if district:
             base_chance -= district.mission_difficulty_modifier
         
+        vehicle_plan = vehicle_plan or self.plan_resources_for_mission(profile, mission)[0]
+        staff_plan = staff_plan or self.plan_resources_for_mission(profile, mission)[1]
+
         # Apply staff bonuses
         staff_bonus = 0.0
-        for staff_type in mission.required_staff_types:
-            for staff_id, staff in self.content.staff.items():
-                if staff.staff_type == staff_type and profile.is_staff_available(staff_id):
-                    staff_bonus += (staff.success_bonus - 1.0)
-                    break
+        for staff_id, used in staff_plan.items():
+            if used <= 0:
+                continue
+            staff = self.content.staff.get(staff_id)
+            if not staff:
+                continue
+            staff_bonus += (staff.success_bonus - 1.0)
         
         # Apply upgrade bonuses
         upgrade_bonus = 0.0
@@ -211,8 +335,10 @@ class GameEngine:
             if upgrade and upgrade.effect_type == "success_boost":
                 upgrade_bonus += upgrade.effect_value
         
+        equipment_modifiers = self.calculate_equipment_modifiers(profile, vehicle_plan, staff_plan)
+
         # Calculate final chance
-        final_chance = base_chance * (1.0 + staff_bonus + upgrade_bonus)
+        final_chance = base_chance * (1.0 + staff_bonus + upgrade_bonus + equipment_modifiers["success_bonus"])
 
         # Apply reputation modifier
         reputation_modifier = (profile.reputation - 50) / 100.0  # -0.5 to +0.5
@@ -262,49 +388,42 @@ class GameEngine:
         """
         now = datetime.utcnow()
 
+        effective_duration, vehicle_plan, staff_plan = self.get_effective_mission_duration(
+            profile, mission
+        )
+
         # Calculate costs and success odds up front
-        operating_costs = self.calculate_mission_operating_costs(profile, mission)
-        success_chance = self.calculate_success_chance(profile, mission)
+        operating_costs = self.calculate_mission_operating_costs(
+            profile,
+            mission,
+            vehicle_plan=vehicle_plan,
+            staff_plan=staff_plan,
+            duration_override=effective_duration,
+        )
+        success_chance = self.calculate_success_chance(
+            profile,
+            mission,
+            vehicle_plan=vehicle_plan,
+            staff_plan=staff_plan,
+        )
         reward = self.calculate_mission_reward(profile, mission)
 
         # Apply cooldowns to used resources
-        vehicle_requirements = Counter(mission.required_vehicle_types)
-        for vehicle_type, needed in vehicle_requirements.items():
-            for vehicle_id, vehicle in self.content.vehicles.items():
-                if vehicle.vehicle_type != vehicle_type:
-                    continue
+        for vehicle_id, assign in vehicle_plan.items():
+            vehicle = self.content.vehicles.get(vehicle_id)
+            if not vehicle or assign <= 0:
+                continue
+            cooldown_end = now + timedelta(minutes=vehicle.cooldown_minutes)
+            profile.allocate_vehicles(Counter({vehicle_id: assign}), cooldown_end)
 
-                if needed <= 0:
-                    break
+        for staff_id, assign in staff_plan.items():
+            staff = self.content.staff.get(staff_id)
+            if not staff or assign <= 0:
+                continue
+            cooldown_end = now + timedelta(minutes=staff.cooldown_minutes)
+            profile.allocate_staff(Counter({staff_id: assign}), cooldown_end)
 
-                available = profile.get_available_vehicle_count(vehicle_id)
-                if available <= 0:
-                    continue
-
-                assign = min(needed, available)
-                cooldown_end = now + timedelta(minutes=vehicle.cooldown_minutes)
-                profile.allocate_vehicles(Counter({vehicle_id: assign}), cooldown_end)
-                needed -= assign
-
-        staff_requirements = Counter(mission.required_staff_types)
-        for staff_type, needed in staff_requirements.items():
-            for staff_id, staff in self.content.staff.items():
-                if staff.staff_type != staff_type:
-                    continue
-
-                if needed <= 0:
-                    break
-
-                available = profile.get_available_staff_count(staff_id)
-                if available <= 0:
-                    continue
-
-                assign = min(needed, available)
-                cooldown_end = now + timedelta(minutes=staff.cooldown_minutes)
-                profile.allocate_staff(Counter({staff_id: assign}), cooldown_end)
-                needed -= assign
-
-        mission_end_time = now + timedelta(minutes=mission.base_duration)
+        mission_end_time = now + timedelta(minutes=effective_duration)
         active_mission = ActiveMission(
             mission_id=mission.id,
             name=mission.name,
@@ -322,7 +441,7 @@ class GameEngine:
 
         message = (
             f"🚨 Units dispatched for {mission.name}. "
-            f"Estimated completion in {mission.base_duration} minutes."
+            f"Estimated completion in {effective_duration} minutes."
         )
 
         return active_mission, -operating_costs["total"], message

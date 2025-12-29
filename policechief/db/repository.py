@@ -54,8 +54,9 @@ class Repository:
                         user_id, station_level, station_name, current_district,
                         unlocked_districts, owned_vehicles, staff_roster,
                         owned_upgrades, active_policies, active_missions,
+                        equipment_inventory, equipment_assignments,
                         heat_level, reputation, last_tick_ts, automation_enabled
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         user_id, profile.station_level, profile.station_name,
@@ -66,6 +67,8 @@ class Repository:
                         json.dumps(profile.owned_upgrades),
                         json.dumps(profile.active_policies),
                         json.dumps([]),
+                        json.dumps(profile.equipment_inventory),
+                        json.dumps(profile.equipment_assignments),
                         profile.heat_level, profile.reputation,
                         None,  # last_tick_ts
                         0  # automation_enabled
@@ -98,6 +101,8 @@ class Repository:
                         owned_upgrades = ?,
                         active_policies = ?,
                         active_missions = ?,
+                        equipment_inventory = ?,
+                        equipment_assignments = ?,
                         heat_level = ?,
                         reputation = ?,
                         last_tick_ts = ?,
@@ -139,6 +144,8 @@ class Repository:
                                 for mission in profile.active_missions
                             ]
                         ),
+                        json.dumps(profile.equipment_inventory),
+                        json.dumps(profile.equipment_assignments),
                         profile.heat_level,
                         profile.reputation,
                         profile.last_tick_ts.isoformat() if profile.last_tick_ts else None,
@@ -217,6 +224,19 @@ class Repository:
                 if mission.get("ends_at")
             ]
 
+        equipment_inventory = {}
+        if len(row) > 24 and row[24]:
+            equipment_inventory = json.loads(row[24])
+
+        equipment_assignments = {"vehicles": {}, "staff": {}}
+        if len(row) > 25 and row[25]:
+            try:
+                loaded_assignments = json.loads(row[25])
+                if isinstance(loaded_assignments, dict):
+                    equipment_assignments.update(loaded_assignments)
+            except json.JSONDecodeError:
+                pass
+
         profile = PlayerProfile(
             user_id=row[0],
             station_level=row[1],
@@ -239,7 +259,9 @@ class Repository:
             total_missions_failed=row[18],
             total_income_earned=row[19],
             total_expenses_paid=row[20],
-            active_missions=active_missions
+            active_missions=active_missions,
+            equipment_inventory=equipment_inventory,
+            equipment_assignments=equipment_assignments,
         )
 
         return profile
