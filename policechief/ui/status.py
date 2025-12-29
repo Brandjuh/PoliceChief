@@ -99,8 +99,6 @@ class StatusView(BaseView):
         # Financial statistics
         net_income = self.profile.total_income_earned - self.profile.total_expenses_paid
 
-        tick_costs = self.cog.game_engine.calculate_tick_costs(self.profile)
-        
         embed.add_field(
             name="Financial Summary",
             value=(
@@ -111,15 +109,23 @@ class StatusView(BaseView):
             inline=True
         )
 
-        embed.add_field(
-            name="Recurring Costs (per 5 min)",
-            value=(
-                f"Salaries: {format_credits(tick_costs['salaries'])}\n"
-                f"Maintenance: {format_credits(tick_costs['maintenance'])}\n"
-                f"Total Burn: {format_credits(tick_costs['total'])}"
-            ),
-            inline=True
+        missions = self.cog.content_loader.get_missions_for_district(
+            self.profile.current_district, self.profile.station_level
         )
+        if missions:
+            preview_costs = self.cog.game_engine.calculate_mission_operating_costs(
+                self.profile, missions[0]
+            )
+            embed.add_field(
+                name="Operating Costs (per mission)",
+                value=(
+                    f"Fuel: {format_credits(preview_costs['fuel'])}\n"
+                    f"Maintenance: {format_credits(preview_costs['maintenance'])}\n"
+                    f"Salaries: {format_credits(preview_costs['salaries'])}\n"
+                    f"Typical Total: {format_credits(preview_costs['total'])}"
+                ),
+                inline=True
+            )
         
         # Automation status
         dispatch_center_available = self.profile.has_automation_access()
