@@ -142,11 +142,29 @@ class PlayerProfile:
         """Add vehicles to the fleet."""
         current = self.owned_vehicles.get(vehicle_id, 0)
         self.owned_vehicles[vehicle_id] = current + quantity
-    
+
+    def remove_vehicle(self, vehicle_id: str, quantity: int = 1):
+        """Remove vehicles from the fleet, clearing cooldowns when depleted."""
+        current = self.owned_vehicles.get(vehicle_id, 0)
+        if quantity >= current:
+            self.owned_vehicles.pop(vehicle_id, None)
+            self.vehicle_cooldowns.pop(vehicle_id, None)
+        elif current > 0:
+            self.owned_vehicles[vehicle_id] = current - quantity
+
     def add_staff(self, staff_id: str, quantity: int = 1):
         """Add staff to the roster."""
         current = self.staff_roster.get(staff_id, 0)
         self.staff_roster[staff_id] = current + quantity
+
+    def remove_staff(self, staff_id: str, quantity: int = 1):
+        """Remove staff from the roster, clearing cooldowns when depleted."""
+        current = self.staff_roster.get(staff_id, 0)
+        if quantity >= current:
+            self.staff_roster.pop(staff_id, None)
+            self.staff_cooldowns.pop(staff_id, None)
+        elif current > 0:
+            self.staff_roster[staff_id] = current - quantity
     
     def is_vehicle_available(self, vehicle_id: str) -> bool:
         """Check if at least one vehicle of this type is available (not on cooldown)."""
