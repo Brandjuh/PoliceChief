@@ -179,7 +179,7 @@ class TickEngine:
             # Skip missions that are expected to lose money to reduce negative cashflow
             success_chance = self.game_engine.calculate_success_chance(profile, mission) / 100
             reward = self.game_engine.calculate_mission_reward(profile, mission)
-            failure_cost = cost / 2  # Dispatch cost loss on failure
+            failure_cost = cost * self.game_engine.FAILURE_PENALTY_MULTIPLIER
             expected_profit = (success_chance * reward) - ((1 - success_chance) * failure_cost)
 
             if expected_profit <= 0:
