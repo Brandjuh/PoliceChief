@@ -19,9 +19,10 @@ class DashboardView(BaseView):
         self.cog = cog
         self.profile = profile
         self.user = user
-        
+
         # Add buttons
         self.add_item(StatusButton())
+        self.add_item(FinancesButton())
         self.add_item(DispatchButton())
         self.add_item(FleetButton())
         self.add_item(StaffButton())
@@ -119,6 +120,26 @@ class StatusButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         from .status import StatusView
         view = StatusView(self.view.cog, self.view.profile, self.view.user)
+        embed = await view.build_embed()
+        await interaction.response.edit_message(embed=embed, view=view)
+        view.attach_message(interaction.message)
+
+
+class FinancesButton(discord.ui.Button):
+    """Finances button."""
+
+    def __init__(self):
+        super().__init__(
+            style=discord.ButtonStyle.primary,
+            label="Finances",
+            custom_id="pc:dashboard:finances:",
+            emoji="💰",
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        from .finances import FinancesView
+
+        view = FinancesView(self.view.cog, self.view.profile, self.view.user)
         embed = await view.build_embed()
         await interaction.response.edit_message(embed=embed, view=view)
         view.attach_message(interaction.message)
