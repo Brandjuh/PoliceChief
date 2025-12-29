@@ -86,7 +86,6 @@ class Repository:
         """Save a player profile."""
         async with self._get_user_lock(profile.user_id):
             async with aiosqlite.connect(self.db_path) as db:
-                profile.prune_expired_missions()
                 await db.execute(
                     """
                     UPDATE player_profiles SET
@@ -128,7 +127,14 @@ class Repository:
                                 {
                                     "mission_id": mission.mission_id,
                                     "name": mission.name,
-                                    "ends_at": mission.ends_at.isoformat()
+                                    "ends_at": mission.ends_at.isoformat(),
+                                    "dispatched_at": mission.dispatched_at.isoformat(),
+                                    "operating_cost": mission.operating_cost,
+                                    "potential_reward": mission.potential_reward,
+                                    "success_chance": mission.success_chance,
+                                    "heat_change": mission.heat_change,
+                                    "reputation_success": mission.reputation_success,
+                                    "reputation_failure": mission.reputation_failure,
                                 }
                                 for mission in profile.active_missions
                             ]
@@ -198,7 +204,14 @@ class Repository:
                 ActiveMission(
                     mission_id=mission.get("mission_id", ""),
                     name=mission.get("name", "Unknown Mission"),
-                    ends_at=datetime.fromisoformat(mission["ends_at"])
+                    ends_at=datetime.fromisoformat(mission["ends_at"]),
+                    dispatched_at=datetime.fromisoformat(mission.get("dispatched_at", mission["ends_at"])),
+                    operating_cost=int(mission.get("operating_cost", 0)),
+                    potential_reward=int(mission.get("potential_reward", 0)),
+                    success_chance=int(mission.get("success_chance", 50)),
+                    heat_change=int(mission.get("heat_change", 0)),
+                    reputation_success=int(mission.get("reputation_success", 0)),
+                    reputation_failure=int(mission.get("reputation_failure", 0)),
                 )
                 for mission in active_missions_data
                 if mission.get("ends_at")
@@ -229,5 +242,4 @@ class Repository:
             active_missions=active_missions
         )
 
-        profile.prune_expired_missions()
         return profile

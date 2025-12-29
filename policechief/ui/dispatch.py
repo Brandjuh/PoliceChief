@@ -170,13 +170,17 @@ class MissionDetailView(BaseView):
         # Mission details
         success_chance = self.cog.game_engine.calculate_success_chance(self.profile, self.mission)
         reward = self.cog.game_engine.calculate_mission_reward(self.profile, self.mission)
-        cost = self.cog.game_engine.calculate_dispatch_cost(self.profile, self.mission)
+        cost_breakdown = self.cog.game_engine.calculate_mission_operating_costs(self.profile, self.mission)
+        cost = cost_breakdown["total"]
         
         embed.add_field(
             name="Mission Info",
             value=(
                 f"Base Reward: {format_credits(reward)} credits\n"
-                f"Fuel Cost: {format_credits(cost)} credits\n"
+                f"Fuel Cost: {format_credits(cost_breakdown['fuel'])} credits\n"
+                f"Maintenance: {format_credits(cost_breakdown['maintenance'])} credits\n"
+                f"Salaries: {format_credits(cost_breakdown['salaries'])} credits\n"
+                f"Total Cost: {format_credits(cost)} credits\n"
                 f"Success Chance: {success_chance}%\n"
                 f"Duration: {self.mission.base_duration} minutes"
             ),
@@ -272,7 +276,7 @@ class DispatchButton(discord.ui.Button):
             return
         
         # Execute dispatch
-        success, amount, message = self.view.cog.game_engine.dispatch_mission(
+        active_mission, amount, message = self.view.cog.game_engine.dispatch_mission(
             self.view.profile,
             self.mission
         )
@@ -294,22 +298,17 @@ class DispatchButton(discord.ui.Button):
         # Save profile
         await self.view.cog.repository.save_profile(self.view.profile)
         
-        # Show result
-        if success:
-            result_embed = build_success_embed("Mission Successful!", message)
-            result_embed.add_field(
-                name="Reward",
-                value=f"+{format_credits(amount)} credits",
-                inline=True
-            )
-        else:
-            result_embed = build_error_embed("Mission Failed", message)
-            result_embed.add_field(
-                name="Loss",
-                value=f"{format_credits(amount)} credits",
-                inline=True
-            )
-        
+        result_embed = build_success_embed("Units Dispatched", message)
+        result_embed.add_field(
+            name="Cost Paid",
+            value=f"{format_credits(abs(amount))} credits",
+            inline=True
+        )
+        result_embed.add_field(
+            name="ETA",
+            value=active_mission.ends_at.strftime("%H:%M UTC"),
+            inline=True
+        )
         result_embed.add_field(
             name="New Balance",
             value=f"{format_credits(new_balance)} credits",
@@ -371,11 +370,6 @@ class ActiveMissionsView(BaseView):
     async def build_embed(self) -> discord.Embed:
         """Build the active missions embed."""
         now = datetime.utcnow()
-        before = len(self.profile.active_missions)
-        self.profile.prune_expired_missions(reference_time=now)
-
-        if len(self.profile.active_missions) != before:
-            await self.cog.repository.save_profile(self.profile)
 
         embed = build_info_embed(
             "🕒 Active Missions",
