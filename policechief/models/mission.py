@@ -3,6 +3,7 @@ Mission model
 Author: BrandjuhNL
 """
 
+from collections import Counter
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -29,13 +30,23 @@ class Mission:
     def get_display_name(self) -> str:
         """Get formatted display name."""
         return self.name
-    
+
     def get_requirements_text(self) -> str:
         """Get human-readable requirements."""
         parts = []
         if self.required_vehicle_types:
-            parts.append(f"Vehicles: {', '.join(self.required_vehicle_types)}")
+            vehicle_counts = Counter(self.required_vehicle_types)
+            vehicle_text = ", ".join(
+                f"{count}x {vehicle_type}" if count > 1 else vehicle_type
+                for vehicle_type, count in vehicle_counts.items()
+            )
+            parts.append(f"Vehicles: {vehicle_text}")
         if self.required_staff_types:
-            parts.append(f"Staff: {', '.join(self.required_staff_types)}")
+            staff_counts = Counter(self.required_staff_types)
+            staff_text = ", ".join(
+                f"{count}x {staff_type}" if count > 1 else staff_type
+                for staff_type, count in staff_counts.items()
+            )
+            parts.append(f"Staff: {staff_text}")
         parts.append(f"Min Level: {self.min_station_level}")
         return " | ".join(parts)

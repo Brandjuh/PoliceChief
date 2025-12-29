@@ -53,11 +53,15 @@ class FleetView(BaseView):
             for vehicle_id, quantity in self.profile.owned_vehicles.items():
                 vehicle = self.cog.content_loader.vehicles.get(vehicle_id)
                 if vehicle:
-                    status = "🟢" if self.profile.is_vehicle_available(vehicle_id) else "🔴"
+                    available = self.profile.get_available_vehicle_count(vehicle_id)
+                    status = "🟢" if available > 0 else "🔴"
                     cooldown_text = ""
                     if vehicle_id in self.profile.vehicle_cooldowns:
                         cooldown_text = f" ({format_time_remaining(self.profile.vehicle_cooldowns[vehicle_id])})"
-                    vehicle_list.append(f"{status} {vehicle.name} x{quantity}{cooldown_text}")
+                    vehicle_list.append(
+                        f"{status} {vehicle.name} x{quantity}"
+                        f" (ready: {available}){cooldown_text}"
+                    )
 
             if vehicle_list:
                 embed.add_field(

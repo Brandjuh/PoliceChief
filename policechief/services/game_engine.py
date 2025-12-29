@@ -3,10 +3,11 @@ Core game engine - handles game logic and calculations
 Author: BrandjuhNL
 """
 
-import random
 import logging
+import random
+from collections import Counter
 from datetime import datetime, timedelta
-from typing import Tuple, Dict, Optional
+from typing import Dict, Optional, Tuple
 from redbot.core import bank
 from redbot.core.bot import Red
 import discord
@@ -38,43 +39,44 @@ class GameEngine:
         if profile.station_level < mission.min_station_level:
             return False, f"Requires station level {mission.min_station_level}"
         
-        # Check vehicle requirements
-        for vehicle_type in mission.required_vehicle_types:
-            # Find a vehicle of this type that's available
-            available = False
+        # Check vehicle requirements (respecting quantity needed per type)
+        vehicle_requirements = Counter(mission.required_vehicle_types)
+        for vehicle_type, quantity_needed in vehicle_requirements.items():
+            available_quantity = 0
             for vehicle_id, vehicle in self.content.vehicles.items():
                 if vehicle.vehicle_type == vehicle_type:
-                    if profile.is_vehicle_available(vehicle_id):
-                        available = True
-                        break
-            
-            if not available:
-                return False, f"No available {vehicle_type} vehicle"
-        
-        # Check staff requirements
-        for staff_type in mission.required_staff_types:
-            # Find staff of this type that's available
-            available = False
+                    available_quantity += profile.get_available_vehicle_count(vehicle_id)
+
+            if available_quantity < quantity_needed:
+                return False, f"Need {quantity_needed} available {vehicle_type} vehicle(s)"
+
+        # Check staff requirements (respecting quantity needed per type)
+        staff_requirements = Counter(mission.required_staff_types)
+        for staff_type, quantity_needed in staff_requirements.items():
+            available_quantity = 0
             for staff_id, staff in self.content.staff.items():
                 if staff.staff_type == staff_type:
-                    if profile.is_staff_available(staff_id):
-                        available = True
-                        break
-            
-            if not available:
-                return False, f"No available {staff_type} staff"
+                    available_quantity += profile.get_available_staff_count(staff_id)
+
+            if available_quantity < quantity_needed:
+                return False, f"Need {quantity_needed} available {staff_type} staff"
 
         return True, ""
 
     def has_active_dispatcher(self, profile: PlayerProfile) -> bool:
         """Return True if the dispatch center has a dispatcher assigned and available."""
-        if profile.get_staff_count(DISPATCHER_STAFF_ID) == 0:
-            return False
-        return profile.is_staff_available(DISPATCHER_STAFF_ID)
+        return self.get_available_dispatcher_count(profile) > 0
+
+    def get_available_dispatcher_count(self, profile: PlayerProfile) -> int:
+        """Return the number of dispatchers currently available."""
+        return profile.get_available_staff_count(DISPATCHER_STAFF_ID)
 
     def get_dispatch_table_count(self, profile: PlayerProfile) -> int:
         """Number of dispatch tables available, including expansions."""
         tables = DISPATCH_BASE_TABLES
+
+        # Each dispatcher adds another active table slot
+        tables = max(tables, self.get_available_dispatcher_count(profile))
 
         for upgrade_id in profile.owned_upgrades:
             upgrade = self.content.upgrades.get(upgrade_id)
@@ -196,20 +198,42 @@ class GameEngine:
         now = datetime.utcnow()
 
         # Set vehicle cooldowns
-        for vehicle_type in mission.required_vehicle_types:
+        vehicle_requirements = Counter(mission.required_vehicle_types)
+        for vehicle_type, needed in vehicle_requirements.items():
             for vehicle_id, vehicle in self.content.vehicles.items():
-                if vehicle.vehicle_type == vehicle_type and profile.is_vehicle_available(vehicle_id):
-                    cooldown_end = now + timedelta(minutes=vehicle.cooldown_minutes)
-                    profile.vehicle_cooldowns[vehicle_id] = cooldown_end
+                if vehicle.vehicle_type != vehicle_type:
+                    continue
+
+                if needed <= 0:
                     break
-        
+
+                available = profile.get_available_vehicle_count(vehicle_id)
+                if available <= 0:
+                    continue
+
+                assign = min(needed, available)
+                cooldown_end = now + timedelta(minutes=vehicle.cooldown_minutes)
+                profile.allocate_vehicles(Counter({vehicle_id: assign}), cooldown_end)
+                needed -= assign
+
         # Set staff cooldowns
-        for staff_type in mission.required_staff_types:
+        staff_requirements = Counter(mission.required_staff_types)
+        for staff_type, needed in staff_requirements.items():
             for staff_id, staff in self.content.staff.items():
-                if staff.staff_type == staff_type and profile.is_staff_available(staff_id):
-                    cooldown_end = now + timedelta(minutes=staff.cooldown_minutes)
-                    profile.staff_cooldowns[staff_id] = cooldown_end
+                if staff.staff_type != staff_type:
+                    continue
+
+                if needed <= 0:
                     break
+
+                available = profile.get_available_staff_count(staff_id)
+                if available <= 0:
+                    continue
+
+                assign = min(needed, available)
+                cooldown_end = now + timedelta(minutes=staff.cooldown_minutes)
+                profile.allocate_staff(Counter({staff_id: assign}), cooldown_end)
+                needed -= assign
 
         # Track mission in progress for visibility
         mission_end_time = now + timedelta(minutes=mission.base_duration)
