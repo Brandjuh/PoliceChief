@@ -3,9 +3,10 @@ Player profile model
 Author: BrandjuhNL
 """
 
+from collections import Counter
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, TYPE_CHECKING
 from datetime import datetime
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - only for type hints
     from .staff import Staff
@@ -59,8 +60,8 @@ class PlayerProfile:
     dashboard_channel_id: Optional[int] = None
     
     # Cooldowns and downtime tracking
-    vehicle_cooldowns: Dict[str, datetime] = field(default_factory=dict)  # vehicle_id -> ready_time
-    staff_cooldowns: Dict[str, datetime] = field(default_factory=dict)  # staff_id -> ready_time
+    vehicle_cooldowns: Dict[str, List[datetime]] = field(default_factory=dict)  # vehicle_id -> ready_times
+    staff_cooldowns: Dict[str, List[datetime]] = field(default_factory=dict)  # staff_id -> ready_times
     
     # Statistics
     total_missions_completed: int = 0
@@ -166,23 +167,67 @@ class PlayerProfile:
         elif current > 0:
             self.staff_roster[staff_id] = current - quantity
     
+    def _prune_cooldowns(self, cooldowns: Dict[str, List[datetime]]):
+        """Remove expired cooldown entries from a cooldown mapping."""
+        now = datetime.utcnow()
+        for key, entries in list(cooldowns.items()):
+            cooldowns[key] = [timestamp for timestamp in entries if timestamp > now]
+            if not cooldowns[key]:
+                cooldowns.pop(key, None)
+
+    def get_available_vehicle_count(self, vehicle_id: str) -> int:
+        """Number of ready vehicles of a given type."""
+        owned = self.get_vehicle_count(vehicle_id)
+        if owned == 0:
+            return 0
+
+        self._prune_cooldowns(self.vehicle_cooldowns)
+        busy = len(self.vehicle_cooldowns.get(vehicle_id, []))
+        return max(0, owned - busy)
+
+    def get_available_staff_count(self, staff_id: str) -> int:
+        """Number of ready staff of a given type."""
+        owned = self.get_staff_count(staff_id)
+        if owned == 0:
+            return 0
+
+        self._prune_cooldowns(self.staff_cooldowns)
+        busy = len(self.staff_cooldowns.get(staff_id, []))
+        return max(0, owned - busy)
+
     def is_vehicle_available(self, vehicle_id: str) -> bool:
         """Check if at least one vehicle of this type is available (not on cooldown)."""
-        if self.get_vehicle_count(vehicle_id) == 0:
-            return False
-        cooldown = self.vehicle_cooldowns.get(vehicle_id)
-        if cooldown is None:
-            return True
-        return datetime.utcnow() >= cooldown
-    
+        return self.get_available_vehicle_count(vehicle_id) > 0
+
     def is_staff_available(self, staff_id: str) -> bool:
         """Check if at least one staff member of this type is available."""
-        if self.get_staff_count(staff_id) == 0:
-            return False
-        cooldown = self.staff_cooldowns.get(staff_id)
-        if cooldown is None:
-            return True
-        return datetime.utcnow() >= cooldown
+        return self.get_available_staff_count(staff_id) > 0
+
+    def allocate_vehicles(self, vehicle_counts: Counter, cooldown_end: datetime):
+        """Mark the given vehicles as busy until the provided time."""
+        for vehicle_id, quantity in vehicle_counts.items():
+            if quantity <= 0:
+                continue
+
+            ready_slots = self.get_available_vehicle_count(vehicle_id)
+            if quantity > ready_slots:
+                quantity = ready_slots
+
+            entries = self.vehicle_cooldowns.setdefault(vehicle_id, [])
+            entries.extend([cooldown_end] * quantity)
+
+    def allocate_staff(self, staff_counts: Counter, cooldown_end: datetime):
+        """Mark the given staff members as busy until the provided time."""
+        for staff_id, quantity in staff_counts.items():
+            if quantity <= 0:
+                continue
+
+            ready_slots = self.get_available_staff_count(staff_id)
+            if quantity > ready_slots:
+                quantity = ready_slots
+
+            entries = self.staff_cooldowns.setdefault(staff_id, [])
+            entries.extend([cooldown_end] * quantity)
 
     def add_active_mission(self, mission_id: str, name: str, ends_at: datetime):
         """Add a mission to the active missions list and clean up old entries."""

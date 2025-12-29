@@ -5,7 +5,7 @@ Author: BrandjuhNL
 
 import discord
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Iterable, Optional, Union
 
 
 def build_error_embed(title: str, description: str) -> discord.Embed:
@@ -38,16 +38,36 @@ def build_info_embed(title: str, description: str) -> discord.Embed:
     return embed
 
 
-def format_time_remaining(target_time: datetime) -> str:
-    """Format remaining time until target_time."""
+def _next_timestamp(targets: Iterable[datetime]) -> Optional[datetime]:
+    """Return the soonest timestamp in the iterable that is still in the future."""
     now = datetime.utcnow()
-    if now >= target_time:
+    upcoming = [ts for ts in targets if ts and ts > now]
+    if not upcoming:
+        return None
+    return min(upcoming)
+
+
+def format_time_remaining(target_time: Union[datetime, Iterable[datetime]]) -> str:
+    """Format remaining time until target_time.
+
+    Supports a single datetime or an iterable of datetimes (e.g., multiple cooldowns).
+    """
+    now = datetime.utcnow()
+
+    if isinstance(target_time, datetime):
+        target = target_time
+    else:
+        target = _next_timestamp(target_time)
+        if target is None:
+            return "Ready"
+
+    if now >= target:
         return "Ready"
-    
-    delta = target_time - now
+
+    delta = target - now
     hours, remainder = divmod(int(delta.total_seconds()), 3600)
     minutes, seconds = divmod(remainder, 60)
-    
+
     if hours > 0:
         return f"{hours}h {minutes}m"
     elif minutes > 0:

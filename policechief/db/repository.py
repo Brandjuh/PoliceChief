@@ -139,8 +139,18 @@ class Repository:
                         1 if profile.automation_enabled else 0,
                         profile.dashboard_message_id,
                         profile.dashboard_channel_id,
-                        json.dumps({k: v.isoformat() for k, v in profile.vehicle_cooldowns.items()}),
-                        json.dumps({k: v.isoformat() for k, v in profile.staff_cooldowns.items()}),
+                        json.dumps(
+                            {
+                                key: [ts.isoformat() for ts in timestamps]
+                                for key, timestamps in profile.vehicle_cooldowns.items()
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                key: [ts.isoformat() for ts in timestamps]
+                                for key, timestamps in profile.staff_cooldowns.items()
+                            }
+                        ),
                         profile.total_missions_completed,
                         profile.total_missions_failed,
                         profile.total_income_earned,
@@ -166,12 +176,20 @@ class Repository:
         vehicle_cooldowns = {}
         if row[15]:
             vehicle_cooldowns_data = json.loads(row[15])
-            vehicle_cooldowns = {k: datetime.fromisoformat(v) for k, v in vehicle_cooldowns_data.items()}
-        
+            for key, value in vehicle_cooldowns_data.items():
+                if isinstance(value, list):
+                    vehicle_cooldowns[key] = [datetime.fromisoformat(ts) for ts in value if ts]
+                elif value:
+                    vehicle_cooldowns[key] = [datetime.fromisoformat(value)]
+
         staff_cooldowns = {}
         if row[16]:
             staff_cooldowns_data = json.loads(row[16])
-            staff_cooldowns = {k: datetime.fromisoformat(v) for k, v in staff_cooldowns_data.items()}
+            for key, value in staff_cooldowns_data.items():
+                if isinstance(value, list):
+                    staff_cooldowns[key] = [datetime.fromisoformat(ts) for ts in value if ts]
+                elif value:
+                    staff_cooldowns[key] = [datetime.fromisoformat(value)]
         
         active_missions = []
         if len(row) > 23 and row[23]:

@@ -50,11 +50,15 @@ class StaffView(BaseView):
             for staff_id, quantity in self.profile.staff_roster.items():
                 staff = self.cog.content_loader.staff.get(staff_id)
                 if staff:
-                    status = "🟢" if self.profile.is_staff_available(staff_id) else "🔴"
+                    available = self.profile.get_available_staff_count(staff_id)
+                    status = "🟢" if available > 0 else "🔴"
                     cooldown_text = ""
                     if staff_id in self.profile.staff_cooldowns:
                         cooldown_text = f" ({format_time_remaining(self.profile.staff_cooldowns[staff_id])})"
-                    staff_list.append(f"{status} {staff.name} x{quantity}{cooldown_text}")
+                    staff_list.append(
+                        f"{status} {staff.name} x{quantity}"
+                        f" (ready: {available}){cooldown_text}"
+                    )
 
             if staff_list:
                 embed.add_field(
