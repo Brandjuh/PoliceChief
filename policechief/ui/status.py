@@ -98,6 +98,8 @@ class StatusView(BaseView):
         
         # Financial statistics
         net_income = self.profile.total_income_earned - self.profile.total_expenses_paid
+
+        tick_costs = self.cog.game_engine.calculate_tick_costs(self.profile)
         
         embed.add_field(
             name="Financial Summary",
@@ -105,6 +107,16 @@ class StatusView(BaseView):
                 f"Total Income: {format_credits(self.profile.total_income_earned)}\n"
                 f"Total Expenses: {format_credits(self.profile.total_expenses_paid)}\n"
                 f"Net Profit: {format_credits(net_income)}"
+            ),
+            inline=True
+        )
+
+        embed.add_field(
+            name="Recurring Costs (per 5 min)",
+            value=(
+                f"Salaries: {format_credits(tick_costs['salaries'])}\n"
+                f"Maintenance: {format_credits(tick_costs['maintenance'])}\n"
+                f"Total Burn: {format_credits(tick_costs['total'])}"
             ),
             inline=True
         )
