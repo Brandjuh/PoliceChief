@@ -21,6 +21,10 @@ class GameEngine:
     """Core game logic and calculations."""
     
     MINIMUM_BALANCE = 100  # Minimum credits required to dispatch
+    FAILURE_PENALTY_MULTIPLIER = 1.0  # Percentage of dispatch cost lost on failure
+    PROFIT_MARGIN = 0.1  # Minimum profit margin versus dispatch cost on success
+    PROFIT_PER_LEVEL = 0.015  # 1.5% extra reward per station level above 1
+    FAILURE_CHANCE_PENALTY = 3  # Flat reduction to final success chance to make failures slightly more likely
 
     def __init__(self, bot: Red, content_loader):
         self.bot = bot
@@ -155,17 +159,24 @@ class GameEngine:
         
         # Calculate final chance
         final_chance = base_chance * (1.0 + staff_bonus + upgrade_bonus)
-        
+
         # Apply reputation modifier
         reputation_modifier = (profile.reputation - 50) / 100.0  # -0.5 to +0.5
         final_chance += (reputation_modifier * 10)  # +/- 5% at extremes
-        
+
+        # Make failures slightly more likely overall
+        final_chance -= self.FAILURE_CHANCE_PENALTY
+
         return max(5, min(95, int(final_chance)))  # Clamp between 5-95%
     
     def calculate_mission_reward(self, profile: PlayerProfile, mission: Mission) -> int:
         """Calculate mission reward amount."""
         base_reward = mission.base_reward
-        
+
+        # Scale rewards by station level so higher-level stations earn more
+        level_multiplier = 1.0 + max(0, profile.station_level - 1) * self.PROFIT_PER_LEVEL
+        base_reward = int(base_reward * level_multiplier)
+
         # Apply district multiplier
         district = self.content.districts.get(profile.current_district)
         if district:
@@ -177,8 +188,13 @@ class GameEngine:
             upgrade = self.content.upgrades.get(upgrade_id)
             if upgrade and upgrade.effect_type == "income_boost":
                 income_multiplier *= (1.0 + upgrade.effect_value)
-        
+
         base_reward = int(base_reward * income_multiplier)
+        # Ensure successful missions are always profitable relative to dispatch cost
+        dispatch_cost = self.calculate_dispatch_cost(profile, mission)
+        minimum_profitable_reward = int(dispatch_cost * (1 + self.PROFIT_MARGIN))
+
+        base_reward = max(base_reward, minimum_profitable_reward)
         return max(1, base_reward)
     
     def dispatch_mission(
@@ -251,8 +267,8 @@ class GameEngine:
             return True, reward, message
         else:
             profile.total_missions_failed += 1
-            # On failure, lose half the fuel cost
-            cost = self.calculate_dispatch_cost(profile, mission) // 2
+            # On failure, lose the full dispatch cost
+            cost = int(self.calculate_dispatch_cost(profile, mission) * self.FAILURE_PENALTY_MULTIPLIER)
             profile.total_expenses_paid += cost
             profile.reputation = max(0, profile.reputation + mission.reputation_change_failure)
             profile.heat_level = max(0, min(100, profile.heat_level + abs(mission.heat_change)))
